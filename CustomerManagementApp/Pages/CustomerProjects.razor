@@ -1,0 +1,178 @@
+﻿@* @page "/customer/{customerId:int}/projects"
+@using CustomerManagementApp.Models
+@using CustomerManagementApp.Services
+@using CustomerManagementApp.Services.Mock
+@inject ICustomerService CustomerService
+@inject IProjectService ProjectService
+
+@code {
+    [Parameter] public int CustomerId { get; set; }
+    private List<Project> projects;
+    private Project newProject = new Project();  // Oggetto per il nuovo progetto
+    private bool isModalOpen = false;
+    private string modalTitle = "Add New Project";
+    private string message = string.Empty;
+    private string customerName = string.Empty;
+
+    // Carica i progetti del cliente
+    protected override async Task OnInitializedAsync()
+    {
+        projects = await ProjectService.GetCustomerProjects(CustomerId) ?? new List<Project>();
+        // if(projects.Count > 0)
+        // {
+        //     customerName = projects.FirstOrDefault().Customer.FirstName;
+        // }        
+    }
+
+    // Aggiungi il nuovo progetto
+    private async Task AddProject()
+    {
+        if (!string.IsNullOrEmpty(newProject.ProjectName) &&
+            newProject.StartDate != DateTime.MinValue &&
+            newProject.EndDate != DateTime.MinValue)
+        {
+            // Aggiungi il nuovo progetto alla lista (mockup)
+            newProject.Id = projects.Max(p => p.Id) + 1;  // Simula l'assegnazione di un nuovo ID
+            newProject.CustomerId = CustomerId;  // Associa il cliente al progetto
+
+            // Aggiungi il progetto alla lista esistente
+            ProjectService.AddProject(newProject);
+
+            // Reset del form del nuovo progetto
+            newProject = new Project();
+            isModalOpen = false;
+
+            message = "Project added successfully!";
+            projects = await ProjectService.GetCustomerProjects(CustomerId); // Ricarica i progetti
+        }
+        else
+        {
+            message = "Please fill all required fields.";
+        }
+    }
+
+    // Chiudi la modale
+    private void CloseModal()
+    {
+        isModalOpen = false;
+    }
+
+    // Apri la modale per l'aggiunta di un progetto
+    private void OpenModal()
+    {
+        modalTitle = "Add New Project";
+        newProject = new Project(); // Reset il modello per un nuovo progetto
+        isModalOpen = true;
+    }
+}
+
+<h1 class="page-title">
+    <img src="/images/logo.png" alt="App Logo" class="app-logo" />
+</h1>
+
+<h3>Customer @CustomerId Projects</h3>
+
+@if (projects == null || !projects.Any())
+{
+    <p>No projects found for this customer.</p>
+}
+else
+{
+    <table class="table table-striped table-hover table-bordered mt-3">
+        <thead class="table-light">
+            <tr>
+                <th>Project Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Payment Due Date</th>
+                <th>Payment Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var project in projects)
+            {
+                <tr>
+                    <td>@project.ProjectName</td>
+                    <td>@project.StartDate.ToShortDateString()</td>
+                    <td>@project.EndDate.ToShortDateString()</td>
+                    <td>@project.PaymentDueDate.ToShortDateString()</td>
+                    <td class="@((project.PaymentDate.HasValue ? "" : "text-danger"))">
+                        @(project.PaymentDate.HasValue ? project.PaymentDate.Value.ToShortDateString() : "Not Paid")
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button class="btn btn-primary" @onclick="OpenModal">
+    Add New Project
+</button>
+
+<!-- Modal -->
+@if (isModalOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@modalTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="newProject" OnValidSubmit="AddProject">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label">Project Name</label>
+                            <InputText id="projectName" class="form-control" @bind-Value="newProject.ProjectName" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="startDate" class="form-label">Start Date</label>
+                            <InputDate id="startDate" class="form-control" @bind-Value="newProject.StartDate" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="endDate" class="form-label">End Date</label>
+                            <InputDate id="endDate" class="form-control" @bind-Value="newProject.EndDate" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="paymentDueDate" class="form-label">Payment Due Date</label>
+                            <InputDate id="paymentDueDate" class="form-control" @bind-Value="newProject.PaymentDueDate" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-control" id="status" @bind="newProject.Status" required>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Pending">Pending</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <InputNumber id="amount" class="form-control" @bind-Value="newProject.Amount" required />
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-success me-2">Save</button>
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        </div>
+                    </EditForm>
+
+                    @if (!string.IsNullOrEmpty(message))
+                    {
+                        <div class="alert alert-info mt-3">
+                            @message
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+ *@

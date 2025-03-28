@@ -1,0 +1,41 @@
+﻿@page "/"
+
+@using Blazored.LocalStorage
+@using CustomerUI.Models
+@using CustomerUI.Services
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject ILocalStorageService LocalStorage
+
+<h3>Login</h3>
+
+@if (errorMessage != null)
+{
+    <p style="color:red">@errorMessage</p>
+}
+
+<div>
+    <label>Username:</label>
+    <input @bind="username" />
+</div>
+<div>
+    <label>Password:</label>
+    <input type="password" @bind="password" />
+</div>
+<button @onclick="HandleLogin">Login</button>
+
+@code {
+    private string username;
+    private string password;
+    private string errorMessage;
+
+    private async Task HandleLogin()
+    {
+        var success = await AuthService.Login(username, password);
+
+        if (success)
+            Navigation.NavigateTo("/dashboard");
+        else
+            errorMessage = "Credenziali errate!";
+    }
+}

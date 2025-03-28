@@ -1,0 +1,6 @@
+@LoginService.cs_HostAddress = http://localhost:5090
+
+GET {{LoginService.cs_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

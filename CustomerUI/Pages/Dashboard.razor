@@ -1,0 +1,325 @@
+﻿@page "/dashboard"
+@using CustomerUI.Models
+@using CustomerUI.Models.Dtos
+@using CustomerUI.Services
+@inject CustomerService CustomerService
+@inject PaymentService PaymentService
+@inject ProjectService ProjectService
+@inject IJSRuntime JSRuntime
+
+@inject NavigationManager NavigationManager
+
+<Notification Notifications="Notifications" />
+
+<div class="container py-5">
+    <h2 class="page-title">Dashboard</h2>
+
+    <!-- Widget Numero Totale Clienti -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow border-0" @onclick="NavigateToCustomers" style="cursor: pointer;">
+                <div class="card-body text-center">
+                    <span class="bi bi-people text-primary" style="font-size: 3rem;"></span>
+                    <h5 class="card-title mt-3">Total Customers</h5>
+                    <p class="card-text fs-3 fw-bold">@NumberOfCustomers</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Pagamenti -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow border-0" @onclick="NavigateToPayments" style="cursor: pointer; background-color: #f8f9fa;">
+                <div class="card-body">
+                    <h5 class="mb-4 fw-bold">Payments</h5>
+                    <div class="row">
+                        <!-- Pagamenti Paid -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-cash-stack text-success" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">Paid</h6>
+                                    <p class="card-text fs-5 fw-bold">@PaidPayments.ToString("C")</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pagamenti Late -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-clock-history text-danger" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">Late</h6>
+                                    <p class="card-text fs-5 fw-bold">@LatePayments.ToString("C")</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pagamenti Pending -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-hourglass-split text-warning" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">Pending</h6>
+                                    <p class="card-text fs-5 fw-bold">@PendingPayments.ToString("C")</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Progetti -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow border-0" @onclick="NavigateToProjects" style="cursor: pointer; background-color: #f8f9fa;">
+                <div class="card-body">
+                    <h5 class="mb-4 fw-bold">Projects</h5>
+                    <div class="row">
+                        <!-- Progetti Conclusi -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-check-circle text-success" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">Completed</h6>
+                                    <p class="card-text fs-5 fw-bold">@CompletedProjects</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progetti In Corso -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-gear text-primary" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">In Progress</h6>
+                                    <p class="card-text fs-5 fw-bold">@InProgressProjects</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progetti In Ritardo -->
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card shadow border-0" style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <span class="bi bi-exclamation-triangle text-danger" style="font-size: 2.5rem;"></span>
+                                    <h6 class="card-title mt-3">Delayed</h6>
+                                    <p class="card-text fs-5 fw-bold">@DelayedProjects</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <br />
+    <div class="row">
+        <div class="col-6">
+            <div class="card shadow border-0" style="background-color: #f8f9fa;">
+                <div class="card-body">
+                    <h5 class="mb-4 fw-bold">Project Status</h5>
+                    <Chart @ref="barChart" Type="Blazorise.Charts.ChartType.Bar" TItem="double" Options="chartOptionsWithTooltip" Clicked="@OnChartClicked" Style="height: 300px;" />
+                </div>
+            </div>
+            </div>
+            <div class="col-6">
+            <div class="card shadow border-0" style="background-color: #f8f9fa;">
+                <div class="card-body">
+                    <h5 class="mb-4 fw-bold">Payments Status</h5>
+                    <Chart @ref="pieChart" Type="Blazorise.Charts.ChartType.Pie" TItem="double" Options="@chartOptions" />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chart-card {
+        margin: 0 5px; /* Aggiunge un po' di spazio tra i grafici */
+    }
+</style>
+
+
+
+@code {
+    private int NumberOfCustomers = 0;
+    private decimal PaidPayments = 0;
+    private decimal LatePayments = 0;
+    private decimal PendingPayments = 0;
+    private int CompletedProjects = 0;
+    private int InProgressProjects = 0;
+    private int DelayedProjects = 0;
+    private List<CustomerUI.Models.Customer> customers = new();
+    private List<PaymentDto> payments = new List<PaymentDto>();
+    private List<ProjectDto>? projects = new List<ProjectDto>();
+    private List<NotificationItem> Notifications = new();
+    private bool firstRender = true;
+    private Chart<double> pieChart;
+    Blazorise.Charts.ChartOptions chartOptions = new() { AspectRatio = 1.5 };
+    private string[] LabelsPie = { "Paid", "Pending", "Overdue" };
+    private List<string> backgroundColors = new()
+    {
+        ChartColor.FromRgba(75, 192, 192, 0.2f),   // Verde per pagamenti effettuati
+         ChartColor.FromRgba(255, 205, 86, 0.2f),   // Giallo per pagamenti in sospeso
+        ChartColor.FromRgba(255, 99, 132, 0.2f)   // Rosso per pagamenti scaduti
+       
+    };
+    private List<string> borderColors = new()
+    {
+        ChartColor.FromRgba(75, 192, 192, 1f),
+        ChartColor.FromRgba(255, 99, 132, 1f),
+        ChartColor.FromRgba(255, 205, 86, 1f)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Sostituisci questi metodi con chiamate ai tuoi servizi API.
+        customers = await CustomerService.GetCustomersAsync();
+        NumberOfCustomers = customers.Count; 
+
+        payments = await PaymentService.GetPaymentsAsync();
+
+        PaidPayments = payments.Where(payments => payments.Status == "Paid").Sum(p => p.PaymentAmount);
+        LatePayments = payments.Where(payments => payments.Status == "Overdue").Sum(p => p.PaymentAmount);
+        PendingPayments = payments.Where(payments => payments.Status == "Pending").Sum(p => p.PaymentAmount);
+
+        projects = await ProjectService.GetProjectsAsync();
+
+        CompletedProjects = projects.Where(p => p.IsComplete == true).Count();
+        InProgressProjects = projects.Where(p => p.IsComplete == false && p.EndDate > DateOnly.FromDateTime(DateTime.Today)).Count();
+        DelayedProjects = projects.Where(p => p.IsComplete == false && p.EndDate <= DateOnly.FromDateTime(DateTime.Today)).Count();
+        
+        if (firstRender)
+        {
+            await barChart.AddLabelsDatasetsAndUpdate(Labels, new BarChartDataset<double>
+                {
+                    Label = "Projects",
+                    Data = new List<double> { (double)CompletedProjects, (double)InProgressProjects, (double)DelayedProjects },
+                    BackgroundColor = BackgroundColors,
+                    BorderColor = BorderColors,
+                    BorderWidth = 1
+                });
+
+            await HandleRedraw(pieChart, GetPaymentsPieChartDataset);
+        }
+
+        // Genera notifiche
+        GenerateNotifications();
+
+        firstRender = false;
+
+        // await HandleChartUpdate();
+    }
+
+    private void NavigateToCustomers() => NavigationManager.NavigateTo("/customers");
+    private void NavigateToPayments() => NavigationManager.NavigateTo("/payments");
+    private void NavigateToProjects() => NavigationManager.NavigateTo("/projects");
+
+    private Chart<double> barChart;
+
+    private string[] Labels = { "Completed", "In Progress", "Delayed" };
+    private List<string> BackgroundColors = new()
+    {
+        ChartColor.FromRgba(75, 192, 192, 0.2f),
+        ChartColor.FromRgba(255, 206, 86, 0.2f),
+        ChartColor.FromRgba(255, 99, 132, 0.2f)
+    };
+    private List<string> BorderColors = new()
+    {
+        ChartColor.FromRgba(75, 192, 192, 1f),
+        ChartColor.FromRgba(255, 206, 86, 1f),
+        ChartColor.FromRgba(255, 99, 132, 1f)
+    }; 
+
+    private Task OnChartClicked(ChartMouseEventArgs e)
+    {
+        // Eventuale gestione click sul grafico
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleRedraw<TDataSet, TItem, TOptions, TModel>(Blazorise.Charts.BaseChart<TDataSet, TItem, TOptions, TModel> chart, Func<TDataSet> getDataSet)
+        where TDataSet : ChartDataset<TItem>
+        where TOptions : Blazorise.Charts.ChartOptions
+        where TModel : ChartModel
+    {
+        await chart.Clear();
+
+        await chart.AddLabelsDatasetsAndUpdate(LabelsPie, getDataSet());
+    }
+
+    private PieChartDataset<double> GetPaymentsPieChartDataset()
+    {
+        return new()
+            {
+                Label = "Payments Status",
+                Data = new List<double> { (double)PaidPayments, (double)PendingPayments, (double)LatePayments },
+                BackgroundColor = backgroundColors,
+                BorderColor = borderColors,
+                BorderWidth = 1
+            };
+    }
+
+    private readonly Blazorise.Charts.ChartOptions chartOptionsWithTooltip = new Blazorise.Charts.ChartOptions
+        {
+            Plugins = new ChartPlugins
+            {
+                Tooltips = new ChartTooltips
+                {
+                    Enabled = true, // Attiva i tooltip
+                    Mode = "index", // Configura il comportamento (es. 'index', 'nearest', ecc.)
+                    Intersect = false, // Tooltip mostrato anche se il mouse non tocca il punto
+                }
+            }
+        };
+
+    private void GenerateNotifications()
+    {
+        Notifications.Clear();
+
+        if (LatePayments > 0)
+        {
+            Notifications.Add(new NotificationItem
+                {
+                    Message = $"There are overdue payments totaling {LatePayments:C}.",
+                    Type = "danger",
+                    Icon = "bi-exclamation-circle"
+                });
+        }
+
+        if (DelayedProjects > 0)
+        {
+            Notifications.Add(new NotificationItem
+                {
+                    Message = $"There are {DelayedProjects} delayed projects.",
+                    Type = "warning",
+                    Icon = "bi-clock-history"
+                });
+        }
+
+        if (NumberOfCustomers == 0)
+        {
+            Notifications.Add(new NotificationItem
+                {
+                    Message = "No customers found. Consider adding new customers.",
+                    Type = "info",
+                    Icon = "bi-person-plus"
+                });
+        }
+
+        if (PendingPayments > 0)
+        {
+            Notifications.Add(new NotificationItem
+                {
+                    Message = $"There are {PendingPayments:C} in pending payments.",
+                    Type = "warning",
+                    Icon = "bi-hourglass-split"
+                });
+        }
+    }
+
+   
+}

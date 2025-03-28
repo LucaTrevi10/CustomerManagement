@@ -1,0 +1,153 @@
+﻿body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 0;
+}
+
+.filters {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    margin-right: 10px;
+}
+
+.filter-select {
+    padding: 5px 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    transition: border-color 0.2s ease;
+}
+
+    .filter-select:focus {
+        border-color: #007aff;
+        outline: none;
+    }
+
+.table.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background-color: #ffffff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table th, .styled-table td {
+    padding: 15px;
+    text-align: left;
+}
+
+.styled-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.styled-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+button {
+    padding: 8px 15px;
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+    button.btn-primary {
+        background-color: #007aff;
+        color: #ffffff;
+        transition: background-color 0.2s ease;
+    }
+
+        button.btn-primary:hover {
+            background-color: #005bbb;
+        }
+
+    button.btn-danger {
+        background-color: #ff3b30;
+        color: #ffffff;
+        transition: background-color 0.2s ease;
+    }
+
+        button.btn-danger:hover {
+            background-color: #d32f2f;
+        }
+
+    button.btn-success {
+        background-color: #34c759;
+        color: #ffffff;
+        transition: background-color 0.2s ease;
+    }
+
+        button.btn-success:hover {
+            background-color: #28a745;
+        }
+
+
+/* Contenitore dei filtri */
+.filters {
+    display: flex;
+    flex-wrap: wrap; /* Consente agli elementi di andare a capo se necessario */
+    gap: 16px; /* Spaziatura tra gli elementi */
+    align-items: flex-start; /* Allinea gli elementi verso l'alto */
+    margin-bottom: 20px;
+}
+
+/* Gruppo di ciascun filtro (label + select) */
+.filter-group {
+    display: flex;
+    flex-direction: column; /* Etichetta sopra la select */
+    flex: 1 1 200px; /* Consente che gli elementi occupino spazio disponibile e siano responsivi */
+}
+
+/* Gruppo per il pulsante, allineato orizzontalmente alle select */
+.filter-actions {
+    display: flex;
+    align-items: flex-end; /* Allinea il pulsante alla base delle select */
+    justify-content: center;
+    flex: 0 0 auto; /* Impedisce al pulsante di espandersi */
+}
+
+/* Etichetta sopra la select */
+.form-label {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+/* Stile della select */
+.form-select {
+    font-size: 16px;
+    border-radius: 25px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    transition: border-color 0.3s;
+}
+
+    .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+/* Nascondi il file input */
+.d-none {
+    display: none;
+}

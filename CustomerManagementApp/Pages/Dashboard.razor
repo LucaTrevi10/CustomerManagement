@@ -1,0 +1,252 @@
+﻿@page "/dashboard"
+@using CustomerManagementApp.Services
+@inject ICustomerService CustomerService
+@using ChartJs.Blazor.PieChart;
+
+<!-- Titolo pagina con l'icona e l'app concatenata al titolo della pagina -->
+<h1 class="page-title">
+    <img src="/images/logo.png" alt="App Logo" class="app-logo" />
+</h1>
+
+<div class="row">
+
+    <!-- Widget: Totale Clienti -->
+    <div class="col-md-6 animate__animated animate__fadeIn">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex align-items-center">
+               @*  <NavLink class="text-primary" href="/customers">View All Customers</NavLink> *@
+                <div>
+                    <h3 class="text-primary">@TotalCustomers</h3>
+                    <NavLink class="text-muted" href="/customers">Total Customers</NavLink>
+                </div>
+                <div class="ms-auto">
+                    <i class="bi bi-people-fill text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget: Totale Progetti -->
+    <div class="col-md-6 animate__animated animate__fadeIn">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex align-items-center">
+                <div>
+                    <h3 class="text-primary">@TotalProjects</h3>
+                    <NavLink class="text-muted" href="/projects">Total Projects</NavLink>
+                </div>
+                <div class="ms-auto">
+                    <i class="bi bi-list text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>    
+</div>
+<br />
+<div class="row">
+    <!-- Recenti Progetti -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-primary text-white">
+                <NavLink class="card-title mb-0" href="/projects?filter=todue">Projects to due</NavLink>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    @foreach (var project in RecentProjects)
+                    {
+                        <li class="list-group-item d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            <b>@project</b>
+                        </li>
+                    }
+                </ul>
+               @*  <div class="mt-3 text-start">
+                    <NavLink class="btn btn-light btn-sm" href="/projects?filter=todue">
+                        View All To Due Projects
+                    </NavLink>
+                </div> *@
+            </div>
+        </div>
+    </div>
+
+    <!-- Progetti in Ritardo -->    
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-danger text-white">
+                <NavLink class="card-title mb-0" href="/projects?filter=overdue">Overdue Projects</NavLink>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    @foreach (var lateProject in LateProjects)
+                    {
+                        <li class="list-group-item d-flex align-items-center">
+                            <i class="bi bi-exclamation-circle-fill text-warning me-2"></i>
+                            <b>@lateProject</b>
+                        </li>
+                    }
+                </ul>
+                <!-- Link per navigare alla pagina Projects -->
+               @*  <div class="mt-3 text-start">
+                    <NavLink class="btn btn-light btn-sm" href="/projects?filter=overdue">
+                        View All Overdue Projects
+                    </NavLink>
+                </div> *@
+            </div>
+        </div>
+    </div>
+
+</div>
+<br />
+<div class="row">
+    <!-- Widget: Totale Pagamenti -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex align-items-center">
+                <div>
+                    <h3 class="text-primary">@TotalPayments.ToString("C")</h3>
+                    <p class="text-muted">Total Target</p>
+                </div>
+                <div class="ms-auto">
+                    <i class="bi bi-cash-stack text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex align-items-center">
+                <div>
+                    <h3 class="text-primary">@PendingAmountPayments.ToString("C")</h3>
+                    <NavLink class="text-muted" href="/projects?filter=Paid">Total actual to date</NavLink>
+                </div>
+                <div class="ms-auto">
+                    <i class="bi bi-cash-stack text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>   
+</div>
+<br />
+
+<div class="row">
+    <!-- Widget: Pagamenti Non Completi -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body d-flex align-items-center">
+                <div>
+                    <h3 class="text-primary">@PendingPayments.ToString("C")</h3>
+                    <NavLink class="text-muted" href="/projects?filter=notPaid">Total outstanding</NavLink>
+                </div>
+                <div class="ms-auto">
+                    <i class="bi bi-wallet2 text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <Chart Config="_pieConfig"></Chart>
+    </div>
+</div>
+
+@code {
+    private bool isDarkTheme = false;
+    private void ToggleTheme()
+    {
+        isDarkTheme = !isDarkTheme;
+        StateHasChanged();
+    }
+    private int TotalCustomers;
+    private int TotalProjects;
+    private decimal TotalPayments;
+    private decimal PendingAmountPayments;
+    private decimal PendingPayments;
+    private List<string> RecentProjects;  // Lista di progetti recenti (come mockup)
+    private List<string> LateProjects;  // Lista di progetti in ritardo (come mockup)
+    private bool isInitialized = false;
+    private PieConfig _pieConfig;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (isInitialized)
+        {
+            return;
+        }
+
+        isInitialized = true;
+
+        ConfigurePieConfig();
+
+        // Totale clienti
+        var customers = await CustomerService.GetCustomers();
+        TotalCustomers = customers.Count;
+
+        // Totale progetti (mockup)
+        TotalProjects = 25;  // Sostituire con i dati reali
+
+        // Totale pagamenti (mockup)
+        TotalPayments = 50000m;  // Sostituire con i dati reali
+
+        PendingAmountPayments = 34500m;  // Sostituire con i dati reali
+
+        // Pagamenti non completati (mockup)
+        PendingPayments = 15500m;  // Sostituire con i dati reali
+
+        // Progetti recenti (mockup)
+        RecentProjects = new List<string>
+            {
+                "Progetto 1",
+                "Progetto 2",
+                "Progetto 3"
+            };
+
+        // Progetti in ritardo (mockup)
+        LateProjects = new List<string>
+            {
+                "Progetto X",
+                "Progetto Y"
+            };
+
+
+    }
+
+    private void Logout()
+    {
+        // Resetta eventuali dati dell'utente o della sessione se necessario
+        // Redirige alla pagina di login
+        NavigationManager.NavigateTo("/");
+    }
+
+    [Inject] private NavigationManager NavigationManager { get; set; }
+
+    private void ConfigurePieConfig()
+    {
+        _pieConfig = new PieConfig();
+
+        _pieConfig.Options = new PieOptions
+        {
+                Responsive = true,
+                Title = new OptionsTitle
+                {
+                    Display = true,
+                    Text = "Payments status"
+                }
+        };
+
+        foreach (var party in new[] { "Paid", "Payment suspended", "Delayed payment"})
+        {
+            _pieConfig.Data.Labels.Add(party);
+        }
+
+        var dataset = new PieDataset<int>(new[] { 50, 15, 35 })
+        {
+                BackgroundColor = new[]
+                {
+                ColorUtil.ColorString(147,197,75,255),
+                ColorUtil.ColorHexString(192, 192, 192),
+                ColorUtil.ColorString(217,83,79,255)
+                }
+        };
+
+        _pieConfig.Data.Datasets.Add(dataset);
+    }
+}

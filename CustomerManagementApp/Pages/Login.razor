@@ -1,0 +1,41 @@
+﻿@page "/"
+
+@using CustomerManagementApp.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<h3>Login</h3>
+
+<div>
+    <label>Username: </label>
+    <input @bind="username" />
+</div>
+<div>
+    <label>Password: </label>
+    <input @bind="password" type="password" />
+</div>
+<div>
+    <button @onclick="LoginUser">Login</button>
+</div>
+
+<p>@message</p>
+
+@code {
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private string message = string.Empty;
+
+    private async Task LoginUser()
+    {
+        var success = await AuthService.Login(username, password);
+        if (success)
+        {
+            message = "Login successful!";
+            NavigationManager.NavigateTo("/dashboard");
+        }
+        else
+        {
+            message = "Login failed. Please check your credentials.";
+        }
+    }
+}

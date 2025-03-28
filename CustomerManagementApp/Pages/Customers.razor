@@ -1,0 +1,337 @@
+﻿@page "/customers"
+@using CustomerManagementApp.Models
+@using CustomerManagementApp.Services
+@using System.Text
+@inject ICustomerService CustomerService
+@inject IJSRuntime JSRuntime
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<!-- Titolo pagina con l'icona e l'app concatenata al titolo della pagina -->
+<h1 class="page-title">
+    <img src="/images/logo.png" alt="App Logo" class="app-logo" />    
+</h1>
+<br />
+<!-- Barra di ricerca -->
+<div class="row mb-3 align-items-center">
+    <!-- Input Text -->
+    <div class="col-md-3">
+        <InputText @bind-Value="searchQuery" class="form-control" placeholder="Search by name, email, or tag..." />
+    </div>
+
+    <!-- Select Filter -->
+    <div class="col-md-2">
+        <select class="form-control" @bind="selectedFilter" style="height: calc(1.5em + 0.75rem + 2px);">
+            <option value="">All</option>
+            <option value="tag">By Tag</option>
+            <option value="email">By Email</option>
+        </select>
+    </div>
+
+    <!-- Buttons -->
+    <div class="col-md-7 d-flex align-items-center">
+        <button class="btn btn-primary me-2" @onclick="SearchCustomers">Filter</button>
+        <button class="btn btn-primary me-2" @onclick="ClearSearch">Clear Filters</button>
+        <button class="btn btn-primary me-2" @onclick="OpenCreateCustomerModal">
+            <i class="bi bi-plus-circle me-2"></i> Add New Customer
+        </button>
+        <button class="btn btn-primary" @onclick="ExportCustomersAsCsv">Export CSV</button>            
+        @* <button class="btn btn-danger" style="margin-left:480px;" @onclick="Logout">Logout</button>   *@      
+    </div>
+</div>
+
+
+@* <div class="col-md-12 d-flex justify-content-end">
+   
+</div> *@
+
+<div class="container-fluid">  
+    <table class="table table-hover table-bordered mt-3">
+        <thead class="table-light">
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Actions</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (filteredCustomers == null || !filteredCustomers.Any())
+            {
+                <tr>
+                    <td colspan="4" class="text-center">No customers found.</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var customer in filteredCustomers)
+                {
+                    <tr>
+                        <td>@customer.CompanyName</td>
+                        <td>@customer.Email</td>
+                        <td>@customer.Phone</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm me-1" @onclick="() => OpenEditCustomerModal(customer)">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteCustomer(customer.CustomerId)">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </td>
+                        <td><a href="/customer/@customer.CustomerId/projects">View Projects</a></td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    @if (isModalOpen)
+    {
+        <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-labelledby="modalTitle" aria-hidden="false">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="modalTitle">@modalTitle</h5>
+                        <button type="button" class="btn-close" @onclick="CloseModal" aria-label="Close"></button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="modal-body">
+                        <EditForm Model="currentCustomer" OnValidSubmit="HandleValidSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <!-- First Name -->
+                            <div class="form-floating mb-3">
+                                <InputText id="firstName" class="form-control" @bind-Value="currentCustomer.CompanyName" />
+                                <label for="firstName">First Name</label>
+                            </div>
+
+                            <!-- Email -->
+                            <div class="form-floating mb-3">
+                                <InputText id="email" class="form-control" @bind-Value="currentCustomer.Email" />
+                                <label for="email">Email</label>
+                            </div>
+
+                            <!-- Phone -->
+                            <div class="form-floating mb-3">
+                                <InputText id="phone" class="form-control" @bind-Value="currentCustomer.Phone" />
+                                <label for="phone">Phone</label>
+                            </div>
+
+                            <!-- Tags Section -->
+                            <div class="mb-3">
+                                <label for="tags" class="form-label">Tags</label>
+                                <div>
+                                    @if (currentTags?.Any() == true)
+                                    {
+                                        @foreach (var tag in currentTags)
+                                        {
+                                            <span class="badge bg-primary me-1">
+                                                @tag
+                                                <button type="button" class="btn-close ms-1" aria-label="Remove tag" @onclick="() => RemoveTag(tag)"></button>
+                                            </span>
+                                        }
+                                    }
+                                </div>
+                                <div class="input-group mt-2">
+                                    <input type="text" class="form-control" placeholder="Add a tag" @bind="newTagName" />
+                                    <button class="btn btn-outline-secondary" type="button" @onclick="AddTag">Add</button>
+                                </div>
+                            </div>
+
+                            <!-- Buttons -->
+                            <div class="d-flex justify-content-end">
+                                <button type="submit" class="btn btn-success me-2">Save</button>
+                                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<Customer> customers; // Customer
+    private List<Customer> filteredCustomers; // Nuova lista per i clienti filtrati
+    private Customer currentCustomer; // Customer
+    private string modalTitle;
+    private bool isModalOpen = false;
+    private List<string> currentTags = new List<string>(); // Tags del cliente corrente
+    private string newTagName = string.Empty; // Nome del nuovo tag
+    private string searchQuery = string.Empty; // Query di ricerca
+    private string selectedFilter = string.Empty; // Filtro selezionato
+    private string selectedSortOrder = "name"; // Ordine di ordinamento
+
+    // Caricamento iniziale dei clienti
+    protected override async Task OnInitializedAsync()
+    {
+        customers = await CustomerService.GetCustomers() ?? new List<Customer>();
+        filteredCustomers = customers;
+    }
+
+    // Apre la finestra di creazione cliente
+    private void OpenCreateCustomerModal()
+    {
+        modalTitle = "Add New Customer";
+        currentCustomer = new Customer();
+        isModalOpen = true;
+    }
+
+    // Filtra i clienti in base alla query di ricerca
+    private void SearchCustomers()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredCustomers = customers;
+        }
+        else
+        {
+            filteredCustomers = customers
+                                        .Where(c =>
+                                              (c.CompanyName?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                              (c.Email?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                              (c.Phone?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                              (c.Tags != null && c.Tags.Any(tag => tag.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))))
+                                        .ToList();
+        }
+    }
+
+    // Pulisce la ricerca
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+        selectedFilter = string.Empty;
+        filteredCustomers = customers;
+    }
+  
+    // Apre la finestra di modifica del cliente
+    private async void OpenEditCustomerModal(Customer customer)
+    {
+        if (customer == null) return;
+
+        modalTitle = "Edit Customer";
+        currentCustomer = new Customer
+            {
+                CustomerId = customer.CustomerId,
+                CompanyName = customer.CompanyName,
+                Email = customer.Email,
+                Phone = customer.Phone
+            };
+
+        // Carica i tag del cliente
+        currentTags = await CustomerService.GetCustomerTags(customer.CustomerId);
+
+        isModalOpen = true;
+    }
+
+    // Chiude la finestra modale
+    private void CloseModal()
+    {
+        isModalOpen = false;
+    }
+
+    // Gestisce l'invio del form di creazione/modifica del cliente
+    private async Task HandleValidSubmit()
+    {
+        if (currentCustomer.CustomerId == 0)
+        {
+            // Aggiungi un nuovo cliente
+            await CustomerService.AddCustomer(currentCustomer);
+        }
+        else
+        {
+            // Modifica un cliente esistente
+            await CustomerService.UpdateCustomer(currentCustomer.CustomerId, currentCustomer);
+        }
+
+        // Ricarica la lista dei clienti
+        customers = await CustomerService.GetCustomers();
+        filteredCustomers = customers; // Aggiorna i clienti filtrati
+        CloseModal();
+    }
+
+    // Elimina un cliente
+    private async Task DeleteCustomer(int id)
+    {
+        await CustomerService.DeleteCustomer(id);
+        customers = await CustomerService.GetCustomers();
+        filteredCustomers = customers; // Aggiorna i clienti filtrati
+    }
+
+    // Aggiunge un nuovo tag al cliente
+    private async Task AddTag()
+    {
+        if (!string.IsNullOrWhiteSpace(newTagName))
+        {
+            var newTag = newTagName.Trim();
+
+            // Aggiungi il tag alla lista locale
+            currentTags.Add(newTag);
+
+            // Se il cliente ha un ID, aggiorna anche lato server
+            if (currentCustomer.CustomerId != 0)
+            {
+                await CustomerService.AddTagToCustomer(currentCustomer.CustomerId, newTag);
+            }
+
+            newTagName = string.Empty; // Resetta l'input
+        }
+    }
+
+    // Rimuove un tag dal cliente
+    private async Task RemoveTag(string tag)
+    {
+        // Rimuove il tag dalla lista locale
+        currentTags.Remove(tag);
+
+        // Se il cliente ha un ID, aggiorna anche lato server
+        if (currentCustomer.CustomerId != 0)
+        {
+            await CustomerService.RemoveTagFromCustomer(currentCustomer.CustomerId, tag);
+        }
+    }
+
+    // Esporta i clienti in formato CSV
+    private async Task ExportCustomersAsCsv()
+    {
+        var csvContent = new StringBuilder();
+        csvContent.AppendLine("First Name,Last Name,Email,Phone");
+
+        foreach (var customer in filteredCustomers)
+        {
+            csvContent.AppendLine($"{customer.CompanyName},{customer.Email},{customer.Phone}");
+        }
+
+        await JSRuntime.InvokeVoidAsync("downloadCSV", csvContent.ToString(), "customers.csv");
+    }
+
+    // Logout dell'utente
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    [Inject] private NavigationManager NavigationManager { get; set; }
+}
+
+<script>
+    function downloadCSV(csvContent, fileName) {
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement("a");
+        if (link.download !== undefined) {
+            // Supporto per il download nel browser
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+</script>

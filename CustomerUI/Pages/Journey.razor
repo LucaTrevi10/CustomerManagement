@@ -1,0 +1,269 @@
+﻿@page "/Journey"
+@using CustomerUI.Models.Dtos
+@using CustomerUI.Services
+@using MudBlazor
+@using Microsoft.AspNetCore.Components
+
+@inject JourneyService journeyService
+@inject IJSRuntime JSRuntime
+
+<link href="css/Journey.css" rel="stylesheet" />
+
+<h2 class="page-title">Customer Journey</h2>
+<!-- Involucro stile card -->
+<MudPaper Class="gradient-card" Elevation="4">
+    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">
+        @customerName
+    </MudText>
+
+    <div class="action-container" style="text-align: center;">
+        <!-- Pulsante per aprire la modale di aggiunta step -->
+        <MudButton Color="MudBlazor.Color.Primary" class="rounded-pill px-3 py-2" Variant="Variant.Filled" OnClick="OpenAddStepModal">
+            <MudIcon Icon="@Icons.Material.Filled.Add" /> Add Step
+        </MudButton>
+    </div>
+
+    @if (journeySteps == null)
+    {
+        <MudText Align="Align.Center">Loading...</MudText>
+    }
+    else if (!journeySteps.Any())
+    {
+        <MudText Align="Align.Center">No steps available for this customer.</MudText>
+    }
+    else
+    {
+        <!-- Timeline con stile personalizzato -->
+        <MudTimeline Class="card-timeline">
+            @foreach (var step in journeySteps)
+            {
+                <MudTimelineItem>
+                    <ItemDot>
+                        <span class="@GetDotClass(step.StepOrder)">
+                            @step.StepOrder
+                        </span>
+                    </ItemDot>
+                    <ChildContent>
+                        <div class="timeline-content">
+                            <div class="timeline-header">
+                                <MudText Typo="Typo.subtitle1">@step.StepName</MudText>
+                                <div class="action-buttons">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Color="MudBlazor.Color.Primary"
+                                                   Size="MudBlazor.Size.Small"
+                                                   OnClick="@(() => OpenEditStepModal(step))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Color="MudBlazor.Color.Error"
+                                                   Size="MudBlazor.Size.Small"
+                                                   OnClick="@(() => DeleteStep(step.JourneyStepId))" />
+                                </div>
+                            </div>
+                            <MudText Typo="Typo.caption" Color="MudBlazor.Color.Secondary">
+                                @step.StepDate.ToString("dd/MM/yyyy")
+                            </MudText>
+                        </div>
+                    </ChildContent>
+                </MudTimelineItem>
+            }
+        </MudTimeline>
+    }
+</MudPaper>
+
+<!-- MODALE: Aggiunta Nuovo Step -->
+@if (isAddStepModalOpen)
+{
+    <div class="modal-backdrop" @onclick="CloseAddStepModal">
+        <div class="modal" @onclick:stopPropagation>
+            <h3>Add New Step</h3>
+            <div class="form-group">
+                <label>Step Name</label>
+                <input class="form-control" @bind="newStep.StepName" />
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" class="form-control" @bind="newStep.StepDate" />
+            </div>
+            <div class="form-group">
+                <label>Order</label>
+                <input type="number" class="form-control" @bind="newStep.StepOrder" />
+            </div>
+            <div class="modal-actions">
+                <MudButton Color="MudBlazor.Color.Secondary" Variant="Variant.Outlined" OnClick="CloseAddStepModal">
+                    Cancel
+                </MudButton>
+                <MudButton Color="MudBlazor.Color.Primary" Variant="Variant.Filled" OnClick="AddStepAsync" Style="margin-left:8px">
+                    Save
+                </MudButton>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODALE: Modifica Step -->
+@if (isEditStepModalOpen && selectedStep != null)
+{
+    <div class="modal-backdrop" @onclick="CloseEditStepModal">
+        <div class="modal" @onclick:stopPropagation>
+            <h3>Edit Step</h3>
+            <div class="form-group">
+                <label>Step Name</label>
+                <input class="form-control" @bind="selectedStep.StepName" />
+            </div>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" class="form-control" @bind="selectedStep.StepDate" />
+            </div>
+            <div class="form-group">
+                <label>Order</label>
+                <input type="number" class="form-control" @bind="selectedStep.StepOrder" />
+            </div>
+            <div class="modal-actions">
+                <MudButton Color="MudBlazor.Color.Secondary" Variant="Variant.Outlined" OnClick="CloseEditStepModal">
+                    Cancel
+                </MudButton>
+                <MudButton Color="MudBlazor.Color.Primary" Variant="Variant.Filled" OnClick="UpdateStepAsync" Style="margin-left:8px">
+                    Save
+                </MudButton>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "customerId")]
+    public int customerId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "customerName")]
+    public string customerName { get; set; } = string.Empty;
+
+    private List<JourneyStepDto> journeySteps;
+
+    // Variabili per la modale "Add Step"
+    private bool isAddStepModalOpen = false;
+    private JourneyStepDto newStep = new();
+
+    // Variabili per la modale "Edit Step"
+    private bool isEditStepModalOpen = false;
+    private JourneyStepDto selectedStep;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStepsAsync();
+    }
+
+    private async Task LoadStepsAsync()
+    {
+        try
+        {
+            journeySteps = await journeyService.GetJourneyStepsAsync(customerId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nel caricamento degli step del journey: {ex.Message}");
+            journeySteps = new List<JourneyStepDto>();
+        }
+    }
+
+    private string GetDotClass(int stepOrder)
+    {
+        if (stepOrder % 5 == 0)
+            return "custom-dot custom-dot-primary";
+        else if (stepOrder % 5 == 1)
+            return "custom-dot custom-dot-secondary";
+        else if (stepOrder % 5 == 2)
+            return "custom-dot custom-dot-info";
+        else if (stepOrder % 5 == 3)
+            return "custom-dot custom-dot-warning";
+        else if (stepOrder % 5 == 4)
+            return "custom-dot custom-dot-error";
+        else
+            return "custom-dot custom-dot-primary";
+    }
+
+    /* ====================== Aggiunta Step ====================== */
+
+    private void OpenAddStepModal()
+    {
+        newStep = new JourneyStepDto
+            {
+                StepDate = DateTime.Now, // data di default
+                StepOrder = journeySteps.Count + 1
+            };
+        isAddStepModalOpen = true;
+    }
+
+    private void CloseAddStepModal()
+    {
+        isAddStepModalOpen = false;
+    }
+
+    private async Task AddStepAsync()
+    {
+        try
+        {
+            await journeyService.AddJourneyStepAsync(customerId, newStep);
+            await LoadStepsAsync();
+            isAddStepModalOpen = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nell'aggiunta dello step: {ex.Message}");
+        }
+    }
+
+    /* ====================== Modifica Step ====================== */
+
+    private void OpenEditStepModal(JourneyStepDto step)
+    {
+        selectedStep = new JourneyStepDto
+            {
+                JourneyStepId = step.JourneyStepId,
+                StepName = step.StepName,
+                StepDate = step.StepDate,
+                StepOrder = step.StepOrder
+            };
+        isEditStepModalOpen = true;
+    }
+
+    private void CloseEditStepModal()
+    {
+        isEditStepModalOpen = false;
+    }
+
+    private async Task UpdateStepAsync()
+    {
+        if (selectedStep == null) return;
+
+        try
+        {
+            await journeyService.UpdateJourneyStepAsync(selectedStep.JourneyStepId, selectedStep);
+            await LoadStepsAsync();
+            isEditStepModalOpen = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nell'aggiornamento dello step: {ex.Message}");
+        }
+    }
+
+    /* ====================== Eliminazione Step ====================== */
+
+    private async Task DeleteStep(int stepId)
+    {
+        bool confirmDelete = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this step?");
+        if (!confirmDelete)
+            return;
+
+        try
+        {
+            await journeyService.DeleteJourneyStepAsync(stepId);
+            await LoadStepsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nell'eliminazione dello step: {ex.Message}");
+        }
+    }
+}

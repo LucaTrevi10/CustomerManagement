@@ -1,0 +1,272 @@
+﻿@* @page "/projects"
+@using CustomerManagementApp.Models
+@using CustomerManagementApp.Services
+@using Microsoft.AspNetCore.WebUtilities
+
+@using System.Text
+@inject ICustomerService CustomerService
+@inject IJSRuntime JSRuntime
+
+@code {
+    private List<Project> allProjects;
+    private List<Project> filteredProjects;
+    private string selectedStatus = "All";
+    private string customerFilter = "";
+    private string Filter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        allProjects = MockGetAllProjects();
+
+        // Ottieni i parametri della query string
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("filter", out var filter))
+        {
+            Filter = filter;
+        }
+
+        // Filtra i progetti in base al parametro
+        if (Filter == "overdue")
+        {
+            filteredProjects = MockGetAllProjects()
+                .Where(p => p.Status == "Pending")
+                .ToList();
+        }
+        else if (Filter == "todue")
+        {
+            filteredProjects = MockGetAllProjects()
+                .Where(p => p.Status == "Completed")
+                .ToList();
+        }
+        else if (Filter == "Paid")
+        {
+            filteredProjects = MockGetAllProjects()
+                .Where(p => p.PaymentDate != null && p.Status == "Completed")
+                .ToList();
+        }
+        else if (Filter == "notPaid")
+        {
+            filteredProjects = MockGetAllProjects()
+                .Where(p => p.PaymentDate == null && p.Status != "Completed")
+                .ToList();
+        }
+        else
+        {                        
+            filteredProjects = allProjects; // Visualizza tutto inizialmente
+        }
+       
+    }
+
+    private void ApplyFilters()
+    {
+        filteredProjects = allProjects
+            .Where(p => (selectedStatus == "All" || p.Status == selectedStatus) &&
+                        (string.IsNullOrEmpty(customerFilter) || p.Customer.FirstName.Contains(customerFilter, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private void ClearFilters()
+    {
+        selectedStatus = "All";
+        customerFilter = "";
+        filteredProjects = allProjects; // Ripristina la lista originale
+    }
+
+    private async Task ExportProjectsAsCsv()
+    {
+        // Crea una lista di righe CSV
+        var csvContent = new StringBuilder();
+
+        // Aggiungi l'intestazione
+        csvContent.AppendLine("First Name,Last Name,Email,Phone");
+
+        // Aggiungi i dati dei clienti
+        foreach (var project in filteredProjects)
+        {
+            csvContent.AppendLine($"{project.Customer},{project.StartDate},{project.EndDate},{project.PaymentDueDate},{project.PaymentDate},{project.Amount},{project.Status}");
+        }
+
+        // Chiama JavaScript per scaricare il CSV
+        await JSRuntime.InvokeVoidAsync("downloadCSV", csvContent.ToString(), "customers.csv");
+    }
+
+    private void Logout()
+    {
+        // Resetta eventuali dati dell'utente o della sessione se necessario
+        // Redirige alla pagina di login
+        NavigationManager.NavigateTo("/");
+    }
+
+    [Inject] private NavigationManager NavigationManager { get; set; }
+
+    private List<Project> MockGetAllProjects()
+    {
+        var customers = new List<Customer>
+    {
+        new Customer { Id = 1, FirstName = "Pi Energy" },
+        new Customer { Id = 2, FirstName = "Tech Solutions" },
+        new Customer { Id = 3, FirstName = "GreenTech" }
+    };
+
+        var projects = new List<Project>();
+        var statuses = new[] { "In Progress", "Completed", "Pending" };
+        var random = new Random();
+        DateTime fixedEndDate = new DateTime(2025, 1, 7); // Data di riferimento per i progetti Pending
+
+        decimal totalNotPaidAmount = 15500m;  // Somma totale Amount per i progetti non pagati
+        decimal totalPaidAmount = 34500m;     // Somma totale Amount per i progetti pagati
+        decimal notPaidAmountAccumulated = 0m;
+        decimal paidAmountAccumulated = 0m;
+
+        // Genera progetti
+        for (int i = 1; i <= 30; i++)
+        {
+            var customer = customers[random.Next(customers.Count)];
+            var status = statuses[random.Next(statuses.Length)];
+
+            DateTime? paymentDate = null;
+            decimal amount = 0m;
+
+            // Genera progetti non pagati
+            if (status != "Completed" || random.NextDouble() > 0.5)
+            {
+                // Se il progetto non è pagato
+                amount = 15500m / 15;  // Dividiamo la somma per i progetti non pagati tra i progetti non pagati (es. 15 progetti)
+                notPaidAmountAccumulated += amount;
+                paymentDate = null;
+            }
+            else
+            {
+                // Se il progetto è pagato
+                amount = 34500m / 15;  // Dividiamo la somma per i progetti pagati tra i progetti pagati (es. 15 progetti)
+                paidAmountAccumulated += amount;
+                paymentDate = DateTime.Now.AddDays(random.Next(1, 30));  // Assegna la PaymentDate se è completato
+            }
+
+            // Logica per l'EndDate in progetti Pending
+            DateTime endDate = (status == "Pending") ? fixedEndDate.AddDays(random.Next(-30, 0)) : DateTime.Now.AddDays(random.Next(1, 365));
+
+            projects.Add(new Project
+                {
+                    Id = i,
+                    CustomerId = customer.Id,
+                    ProjectName = $"Project {i}",
+                    StartDate = DateTime.Now.AddDays(-random.Next(1, 365)),
+                    EndDate = endDate,
+                    PaymentDueDate = DateTime.Now.AddDays(random.Next(30, 365)),
+                    PaymentDate = paymentDate,
+                    Amount = amount,
+                    Status = status,
+                    Customer = customer
+                });
+        }
+
+        // Verifica che la somma totale dell'importo sia corretta
+        if (notPaidAmountAccumulated != totalNotPaidAmount)
+        {
+            // Logica per correggere la somma se necessario (esempio aggiustando l'ultimo progetto)
+            projects[projects.Count - 1].Amount += totalNotPaidAmount - notPaidAmountAccumulated;
+        }
+
+        if (paidAmountAccumulated != totalPaidAmount)
+        {
+            // Logica per correggere la somma se necessario (esempio aggiustando l'ultimo progetto)
+            projects[projects.Count - 1].Amount += totalPaidAmount - paidAmountAccumulated;
+        }
+
+        return projects;
+    }
+
+
+
+
+}
+
+<!-- Titolo pagina -->
+<h1 class="page-title">
+    <img src="/images/logo.png" alt="App Logo" class="app-logo" />
+</h1>
+<br />
+<h3 style="font-weight:bold !important">All Projects</h3>
+<br />
+
+<div class="filters mb-3">
+    <div class="row">
+        <div class="col-md-4">
+          
+            <select id="statusFilter" class="form-select" @bind="selectedStatus">
+                <option value="All">All</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Pending">Pending</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+           
+            <input id="customerFilter" type="text" class="form-control" @bind="customerFilter" placeholder="Enter customer name..." />
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button class="btn btn-primary me-2" @onclick="ApplyFilters">Applica Filtri</button>
+            <button class="btn btn-primary me-2" @onclick="ClearFilters">Clear Filters</button>
+            <button class="btn btn-primary" @onclick="ExportProjectsAsCsv">Export CSV</button>
+        </div>
+    </div>
+</div>
+
+<table class="table table-striped table-hover table-bordered mt-3">
+    <thead class="table-light">
+        <tr>
+            <th>Project Name</th>
+            <th>Customer Name</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Payment Due Date</th>
+            <th>Payment Date</th>
+            <th>Status</th>
+            <th>Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (filteredProjects == null || !filteredProjects.Any())
+        {
+            <tr>
+                <td colspan="8" class="text-center">No projects found.</td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var project in filteredProjects)
+            {
+                <tr>
+                    <td>@project.ProjectName</td>
+                    <td>@project.Customer?.FirstName</td>
+                    <td>@project.StartDate.ToShortDateString()</td>
+                    <td>@project.EndDate.ToShortDateString()</td>
+                    <td>@project.PaymentDueDate.ToShortDateString()</td>
+                    <td class="@((project.PaymentDate.HasValue ? "" : "text-danger"))">
+                        @(project.PaymentDate.HasValue ? project.PaymentDate.Value.ToShortDateString() : "Not Paid")
+                    </td>
+                    <td>@project.Status</td>
+                    <td>@project.Amount.ToString("C")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+
+<script>
+    function downloadCSV(csvContent, fileName) {
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement("a");
+        if (link.download !== undefined) {
+            // Supporto per il download nel browser
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+</script> *@

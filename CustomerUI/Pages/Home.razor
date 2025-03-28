@@ -1,0 +1,59 @@
+﻿@page "/log"
+
+@using CustomerUI.Services
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+
+<div class="login-container">
+    <h6 class="page-title">Login</h6>
+
+    <div>
+        <label>Username:</label>
+        <input @bind="username" class="form-control" />
+        <span class="text-danger" style="display: @(string.IsNullOrWhiteSpace(username) && showErrors ? "block" : "none")">
+            Il campo è obbligatorio
+        </span>
+    </div>
+
+    <div>
+        <label>Password:</label>
+        <input type="password" @bind="password" class="form-control" />
+        <span class="text-danger" style="display: @(string.IsNullOrWhiteSpace(password) && showErrors ? "block" : "none")">
+            Il campo è obbligatorio
+        </span>
+    </div>
+
+    <span class="text-danger" style="display: @(invalidCredentials ? "block" : "none")">
+        Username o password errati
+    </span>
+
+    <button @onclick="HandleLogin" class="btn btn-primary mt-2 rounded-pill px-3 py-2">Login</button>
+</div>
+
+@code {
+    private string username { get; set; } = string.Empty;
+    private string password { get; set; } = string.Empty;
+    private bool showErrors = false;
+    private bool invalidCredentials = false;
+
+    private async Task HandleLogin()
+    {
+        showErrors = string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password);
+        invalidCredentials = false;
+
+        if (showErrors)
+            return;
+
+        // bool success = await AuthService.Login(username, password);
+        // if (success)
+        // {
+        //     invalidCredentials = false;
+        //     Navigation.NavigateTo("/dashboard");
+        // }
+        // else
+        // {
+        //     invalidCredentials = true;
+        // }       
+    }
+
+}

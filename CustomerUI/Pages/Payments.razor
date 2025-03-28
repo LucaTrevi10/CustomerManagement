@@ -1,0 +1,437 @@
+﻿@page "/payments"
+@inject PaymentService PaymentService
+@using ClosedXML.Excel
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<link href="Payments.css" rel="stylesheet">
+<script src="js/downloadHelper.js"></script>
+
+@using CustomerUI.Models
+@using CustomerUI.Services
+@using CustomerUI.Models.Dtos
+@using System.Net.Http.Json
+
+<h2 class="page-title">Payments</h2>
+
+<div class="filters">
+    <div>
+        <select id="paymentMethodFilter" class="form-select rounded-pill px-3 py-2" style="width: 220px !important;" @bind ="selectedPaymentMethod">
+            <option value="">All Payment Methods</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cash">Cash</option>
+            <option value="Credit Card">Credit Card</option>
+            <option value="PayPal">PayPal</option>
+        </select>
+    </div>
+    <div>
+        <select id="statusFilter" class="form-select rounded-pill px-3 py-2" style="width: 220px !important;" @bind="selectedStatus">
+            <option value="">All Status</option>
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Overdue">Overdue</option>
+        </select>
+    </div>
+    <div>
+        <button class="btn btn-primary rounded-pill px-3 py-2" @onclick="ApplyFilters"><i class="fas fa-filter"></i> Apply Filters</button>
+        <button class="btn btn-success rounded-pill px-3 py-2" @onclick="ExportToExcel">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        <label class="btn btn-success rounded-pill px-3 py-2">
+            <i class="fas fa-upload"></i> Import Payments
+            <InputFile class="d-none" OnChange="@(async e => await HandleFileUpload(e))" accept=".xlsx,.xls" />
+        </label>
+        @*  <InputFile class="d-none" OnChange="@(async e => await HandleFileUpload(e))" accept=".xlsx,.xls" /> *@
+    </div>
+</div>
+
+<table class="table styled-table">
+    <thead>
+        <tr>
+            <th>Project Name</th>
+            <th>Payment Amount</th>
+            <th>Payment Date</th>
+            <th>Payment Method</th>
+            <th>Status</th>
+            <th>Invoice</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var payment in filteredPayments)
+        {
+            <tr>
+                <td>@payment.ProjectName</td>
+                <td>@payment.PaymentAmount</td>
+                <td>@payment.PaymentDate.ToShortDateString()</td>
+                <td>@payment.PaymentMethod</td>
+                <td>@payment.Status</td>
+                <td>@payment.Invoice</td>
+                <td>
+                    <button class="btn btn-primary rounded-pill px-3 py-2" @onclick="() => OpenEditModal(payment)"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn btn-danger rounded-pill px-3 py-2" @onclick="() => OnDeleteClicked(payment.PaymentId)"><i class="fas fa-trash"></i> Delete</button>
+                    @if (!string.IsNullOrEmpty(payment.InvoiceFilePath))
+                    {
+                        <button class="btn btn-success" @onclick="() => DownloadInvoice(payment.PaymentId)"><i class="fas fa-download"></i>Download</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (isUploading)
+{
+    <p>Uploading file...</p>
+}
+
+@if (!string.IsNullOrEmpty(uploadMessage))
+{
+    <p>@uploadMessage</p>
+}
+
+<!-- Modal for Uploading Invoice -->
+@if (showUploadModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Invoice</h5>
+                    <button type="button" class="btn-close" @onclick="CloseUploadModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@fileUploadModel" OnValidSubmit="HandleFileUpload">
+                        <DataAnnotationsValidator />
+                        <Microsoft.AspNetCore.Components.Forms.ValidationSummary />
+                        <InputFile OnChange="HandleFileSelected" />
+                        <button type="submit" class="btn btn-primary rounded-pill mt-3">Upload</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isEditModalOpen)
+{
+    <div class="modal-backdrop" @onclick="CloseEditModal">
+        <div class="modal" @onclick:stopPropagation>
+            @*   <h5>Edit Payment</h5> *@
+            @*  <br /> *@
+            <div>
+                <label for="paymentAmount" class="form-label">Payment Amount</label>
+                <input type="number" id="paymentAmount" class="form-control rounded-pill px-3 py-2" @bind="selectedPayment.PaymentAmount" />
+            </div>
+            <div>
+                <label for="paymentDate" class="form-label">Payment Date</label>
+                <input type="date" id="paymentDate" class="form-control rounded-pill px-3 py-2" @bind="selectedPayment.PaymentDate" />
+            </div>
+            <div>
+                <label for="paymentMethod" class="form-label">Payment Method</label>
+                <select id="paymentMethod" class="form-select rounded-pill px-3 py-2" @bind="selectedPayment.PaymentMethod">
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="PayPal">PayPal</option>
+                </select>
+            </div>
+            <div>
+                <label for="status" class="form-label">Status</label>
+                <select id="status" class="form-select rounded-pill px-3 py-2" @bind="selectedPayment.Status">
+                    <option value="Paid">Paid</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Overdue">Overdue</option>
+                </select>
+            </div>
+            <br />
+            <div>
+                <button type="button" class="btn btn-secondary rounded-pill px-4 py-2" @onclick="CloseEditModal"><i class="fas fa-times-circle"></i> Cancel</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4 py-2" @onclick="SaveChanges"><i class="fa-regular fa-floppy-disk"></i> Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PaymentDto> payments = new List<PaymentDto>();
+    private FileUploadModel fileUploadModel = new();
+    private PaymentDto? selectedPayment;
+    private bool showUploadModal = false;
+    private bool isEditModalOpen = false;
+    private string selectedPaymentMethod = string.Empty;
+    private string selectedStatus = string.Empty;
+    private List<PaymentDto> filteredPayments = new List<PaymentDto>();
+    private bool isUploading = false;
+    private string uploadMessage = string.Empty;
+    private List<NotificationItem> Notifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        payments = await PaymentService.GetPaymentsAsync();
+        filteredPayments = payments; // Inizializza la lista filtrata
+    }
+
+    private async Task ApplyFilters()
+    {
+        filteredPayments = payments;
+
+        if (!string.IsNullOrEmpty(selectedPaymentMethod))
+        {
+            filteredPayments = filteredPayments
+                .Where(p => p.PaymentMethod == selectedPaymentMethod)
+                .ToList();
+        }
+
+        if (!string.IsNullOrEmpty(selectedStatus))
+        {
+            filteredPayments = filteredPayments
+                .Where(p => p.Status == selectedStatus)
+                .ToList();
+        }
+    }
+
+    private void OpenEditModal(PaymentDto payment)
+    {
+        selectedPayment = new PaymentDto
+            {
+                PaymentId = payment.PaymentId,
+                PaymentAmount = payment.PaymentAmount,
+                PaymentDate = payment.PaymentDate,
+                PaymentMethod = payment.PaymentMethod,
+                Status = payment.Status
+            };
+        isEditModalOpen = true;
+    }
+
+    private void CloseEditModal()
+    {
+        selectedPayment = null;
+        isEditModalOpen = false;
+    }
+
+    private async Task SaveChanges()
+    {
+        if (selectedPayment != null)
+        {
+            // Chiamata al servizio per salvare le modifiche
+            await PaymentService.UpdatePaymentAsync(selectedPayment);
+
+            // Aggiorna l'elenco locale
+            var payment = payments.FirstOrDefault(p => p.PaymentId == selectedPayment.PaymentId);
+            if (payment != null)
+            {
+                payment.PaymentAmount = selectedPayment.PaymentAmount;
+                payment.PaymentDate = selectedPayment.PaymentDate;
+                payment.PaymentMethod = selectedPayment.PaymentMethod;
+                payment.Status = selectedPayment.Status;
+            }
+        }
+
+        CloseEditModal();
+    }
+
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     // Recupera i pagamenti dalla API
+    //     payments = await PaymentService.GetPaymentsAsync();
+    // }
+
+    private void OpenUploadModal(int paymentId)
+    {
+        fileUploadModel = new FileUploadModel { PaymentId = paymentId };
+        showUploadModal = true;
+    }
+
+    private void CloseUploadModal()
+    {
+        showUploadModal = false;
+    }
+
+    private async Task HandleFileUpload()
+    {
+        if (fileUploadModel.File != null)
+        {
+            try
+            {
+                await PaymentService.UploadInvoice(fileUploadModel.PaymentId, fileUploadModel.File);
+                showUploadModal = false;
+                await RefreshPayments();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        fileUploadModel.File = e.File;
+    }
+
+    private async Task DownloadInvoice(int paymentId)
+    {
+        try
+        {
+            var fileBytes = await PaymentService.DownloadInvoice(paymentId);
+
+            var fileName = $"Invoice_{paymentId}.pdf";
+            var fileUrl = $"data:application/pdf;base64,{Convert.ToBase64String(fileBytes)}";
+
+            await JSRuntime.InvokeVoidAsync("open", fileUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshPayments()
+    {
+        payments = await PaymentService.GetPaymentsAsync();
+        filteredPayments = payments;
+    }
+
+    private async Task OnStatusChanged(PaymentDto payment, ChangeEventArgs e)
+    {
+        // Aggiorna lo stato localmente
+        payment.Status = e.Value?.ToString();
+
+        // Chiama l'API per salvare il nuovo stato
+        await UpdateStatus(payment);
+    }
+
+
+    private async Task UpdateStatus(PaymentDto payment)
+    {
+        var response = await PaymentService.UpdatePaymentStatus(payment.PaymentId, payment.Status);
+
+        if (response.IsSuccessStatusCode)
+        {
+            // Aggiorna la lista locale dei pagamenti (opzionale, ma migliora l'esperienza utente)
+            var updatedPayment = payments.FirstOrDefault(p => p.PaymentId == payment.PaymentId);
+            if (updatedPayment != null)
+            {
+                updatedPayment.Status = payment.Status;
+            }
+        }
+        else
+        {
+            Console.Error.WriteLine("Failed to update payment status.");
+        }
+    }
+
+    private async Task RefreshPaymentsAsync()
+    {
+        payments = await PaymentService.GetPaymentsAsync();
+        filteredPayments = payments;
+    }
+
+    private async Task OnDeleteClicked(int paymentId)
+    {
+        bool confirmDelete = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this payment?");
+
+        if (confirmDelete)
+        {
+            try
+            {
+                await PaymentService.DeletePaymentAsync(paymentId);
+                await RefreshPaymentsAsync(); // Aggiorna l'elenco
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+    }
+
+    private class FileUploadModel
+    {
+        public int PaymentId { get; set; }
+        public IBrowserFile? File { get; set; }
+    }
+
+    private async Task ExportToExcel()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Customers");
+
+        worksheet.Cell(1, 1).Value = "Project Name";
+        worksheet.Cell(1, 2).Value = "Payment Amount";
+        worksheet.Cell(1, 3).Value = "Payment Date";
+        worksheet.Cell(1, 4).Value = "Payment Method";
+        worksheet.Cell(1, 5).Value = "Status";
+        worksheet.Cell(1, 6).Value = "Invoice";
+
+        int row = 2;
+        foreach (var payments in filteredPayments)
+        {
+            worksheet.Cell(row, 1).Value = payments.ProjectName;
+            worksheet.Cell(row, 2).Value = payments.PaymentAmount;
+            worksheet.Cell(row, 3).Value = payments.PaymentDate.ToString();
+            worksheet.Cell(row, 4).Value = payments.PaymentMethod;
+            worksheet.Cell(row, 5).Value = payments.Status;
+            worksheet.Cell(row, 6).Value = payments.Invoice;
+            row++;
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Position = 0;
+
+        var fileName = "Paymets.xlsx";
+        var fileBytes = stream.ToArray();
+        await JSRuntime.InvokeVoidAsync("BlazorDownloadFile", fileName, fileBytes);
+    }
+
+    private IBrowserFile? uploadedFile;
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        uploadedFile = e.File; // Salva il file selezionato
+
+        // Esempio: Leggi il file in un array di byte
+        var buffer = new byte[uploadedFile.Size];
+        await uploadedFile.OpenReadStream().ReadAsync(buffer);
+
+        // Ora puoi inviare il file all'API
+        await PaymentService.UploadExcelFileToServer(uploadedFile);
+
+        // GenerateNotifications();
+
+        await RefreshPaymentsAsync();
+
+        
+    }
+
+    private void GenerateNotifications()
+    {
+        Notifications.Add(new NotificationItem
+            {
+                Message = $"Payments imported successfully.",
+                Type = "success",
+                Icon = "bi-check-circle"
+            });
+
+        StateHasChanged(); // Forza l'aggiornamento della UI
+    }
+
+    // private async Task UploadExcelFileToServer(IBrowserFile file)
+    // {
+    //     using var content = new MultipartFormDataContent();
+    //     var stream = file.OpenReadStream();
+    //     var fileContent = new StreamContent(stream);
+    //     fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+
+    //     content.Add(fileContent, "file", file.Name);
+
+    //     var response = await _httpClient.PostAsync("api/payments/upload-excel", content);
+
+    //     if (!response.IsSuccessStatusCode)
+    //     {
+    //         throw new Exception("Errore durante il caricamento del file.");
+    //     }
+    // }
+
+}
