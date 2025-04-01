@@ -1,54 +1,46 @@
-﻿using Blazored.LocalStorage;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Blazored.LocalStorage;
 
-namespace CustomerUI.Services
+public class AuthService
 {
-    public class AuthService
+    private readonly HttpClient _http;
+    private readonly ILocalStorageService _localStorage;
+
+    public AuthService(HttpClient http, ILocalStorageService localStorage)
     {
-        private readonly HttpClient _httpClient;
-        private readonly ILocalStorageService _localStorage;
+        _http = http;
+        _localStorage = localStorage;
+    }
 
-        public AuthService(IHttpClientFactory clientFactory, ILocalStorageService localStorage)
-        {
-            _httpClient = clientFactory.CreateClient("LoginService");
-            _localStorage = localStorage;
-        }
+    public async Task<bool> Login(string username, string password)
+    {
+        var response = await _http.PostAsJsonAsync("http://localhost:5257/api/auth/login", new { Username = username, Password = password });
 
-        public async Task<bool> Login(string username, string password)
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync($"api/auth/login/{username}/{password}");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"Errore HTTP: {response.StatusCode}");
-                    return false;
-                }
-
-                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result != null)
-                {
-                    await _localStorage.SetItemAsync("authToken", result.Token);
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore durante la richiesta: {ex.Message}");
-            }
-
+        if (!response.IsSuccessStatusCode)
             return false;
-        }
 
-        public async Task Logout()
-        {
-            await _localStorage.RemoveItemAsync("authToken");
-        }
+        var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        await _localStorage.SetItemAsync("token", result.Token);
+
+        // Aggiorna le richieste HTTP con il nuovo token
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Token);
+        return true;
     }
 
-    public class LoginResponse
+    public async Task Logout()
     {
-        public string Token { get; set; }
+        await _localStorage.RemoveItemAsync("token");
+        _http.DefaultRequestHeaders.Authorization = null;
     }
+
+    public async Task<string> GetToken()
+    {
+        return await _localStorage.GetItemAsStringAsync("token");
+    }
+}
+
+public class AuthResponse
+{
+    public string Token { get; set; }
 }

@@ -1,4 +1,6 @@
 ﻿@page "/dashboard"
+@using Blazored.LocalStorage
+@using Blazorise.Charts
 @using CustomerUI.Models
 @using CustomerUI.Models.Dtos
 @using CustomerUI.Services
@@ -6,7 +8,7 @@
 @inject PaymentService PaymentService
 @inject ProjectService ProjectService
 @inject IJSRuntime JSRuntime
-
+@inject ILocalStorageService LocalStorage
 @inject NavigationManager NavigationManager
 
 <Notification Notifications="Notifications" />
@@ -146,6 +148,7 @@
 
 
 @code {
+
     private int NumberOfCustomers = 0;
     private decimal PaidPayments = 0;
     private decimal LatePayments = 0;
@@ -158,7 +161,9 @@
     private List<ProjectDto>? projects = new List<ProjectDto>();
     private List<NotificationItem> Notifications = new();
     private bool firstRender = true;
+
     private Chart<double> pieChart;
+
     Blazorise.Charts.ChartOptions chartOptions = new() { AspectRatio = 1.5 };
     private string[] LabelsPie = { "Paid", "Pending", "Overdue" };
     private List<string> backgroundColors = new()
@@ -166,7 +171,7 @@
         ChartColor.FromRgba(75, 192, 192, 0.2f),   // Verde per pagamenti effettuati
          ChartColor.FromRgba(255, 205, 86, 0.2f),   // Giallo per pagamenti in sospeso
         ChartColor.FromRgba(255, 99, 132, 0.2f)   // Rosso per pagamenti scaduti
-       
+
     };
     private List<string> borderColors = new()
     {
@@ -175,8 +180,33 @@
         ChartColor.FromRgba(255, 205, 86, 1f)
     };
 
+    private Chart<double> barChart;
+
+    private string[] Labels = { "Completed", "In Progress", "Delayed" };
+    private List<string> BackgroundColors = new()
+    {
+        "rgba(75, 192, 192, 0.2)",
+        "rgba(255, 206, 86, 0.2)",
+        "rgba(255, 99, 132, 0.2)"
+    };
+    
+        private List<string> BorderColors = new()
+    {
+        "rgba(75, 192, 192, 1)",
+        "rgba(255, 206, 86, 1)",
+        "rgba(255, 99, 132, 1)"
+    };
+
+
     protected override async Task OnInitializedAsync()
     {
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        if (string.IsNullOrEmpty(token))
+        {
+            NavigationManager.NavigateTo("/");
+            return; // Evita di eseguire il resto del codice se il token non è valido
+        }
+
         // Sostituisci questi metodi con chiamate ai tuoi servizi API.
         customers = await CustomerService.GetCustomersAsync();
         NumberOfCustomers = customers.Count; 
@@ -215,26 +245,7 @@
         // await HandleChartUpdate();
     }
 
-    private void NavigateToCustomers() => NavigationManager.NavigateTo("/customers");
-    private void NavigateToPayments() => NavigationManager.NavigateTo("/payments");
-    private void NavigateToProjects() => NavigationManager.NavigateTo("/projects");
-
-    private Chart<double> barChart;
-
-    private string[] Labels = { "Completed", "In Progress", "Delayed" };
-    private List<string> BackgroundColors = new()
-    {
-        ChartColor.FromRgba(75, 192, 192, 0.2f),
-        ChartColor.FromRgba(255, 206, 86, 0.2f),
-        ChartColor.FromRgba(255, 99, 132, 0.2f)
-    };
-    private List<string> BorderColors = new()
-    {
-        ChartColor.FromRgba(75, 192, 192, 1f),
-        ChartColor.FromRgba(255, 206, 86, 1f),
-        ChartColor.FromRgba(255, 99, 132, 1f)
-    }; 
-
+    
     private Task OnChartClicked(ChartMouseEventArgs e)
     {
         // Eventuale gestione click sul grafico
@@ -321,5 +332,8 @@
         }
     }
 
+    private void NavigateToCustomers() => NavigationManager.NavigateTo("/customers");
+    private void NavigateToPayments() => NavigationManager.NavigateTo("/payments");
+    private void NavigateToProjects() => NavigationManager.NavigateTo("/projects");
    
 }

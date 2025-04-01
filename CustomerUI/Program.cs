@@ -3,20 +3,20 @@ using Blazorise;
 using Blazorise.Bootstrap;
 using Blazorise.Icons.FontAwesome;
 using CustomerUI;
-using CustomerUI.Auth;
 using CustomerUI.Services;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
+using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 //builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5202/api/") });
+
+builder.Services.AddBlazoredLocalStorage(); 
 
 builder.Services
     .AddBlazorise(options =>
@@ -32,36 +32,38 @@ builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AuthService>();
 
-builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
-builder.Services.AddAuthorizationCore();
-
 builder.Services.AddMudServices();
 
-builder.Services.AddBlazoredLocalStorage();
-builder.Services.AddHttpClient("LoginService", client =>
-{
-    client.BaseAddress = new Uri("http://localhost:5090/");
-});
 
 builder.Services.AddHttpClient("BackendAPI", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5202/");
-});
+}).AddHttpMessageHandler(sp => new CustomerUI.Services.AuthorizationMessageHandler(sp.GetRequiredService<ILocalStorageService>()));
 
 builder.Services.AddHttpClient("CustomerService", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5089/");
-});
+}).AddHttpMessageHandler(sp => new CustomerUI.Services.AuthorizationMessageHandler(sp.GetRequiredService<ILocalStorageService>()));
 
 builder.Services.AddHttpClient("PaymentService", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5125/");
-});
+}).AddHttpMessageHandler(sp => new CustomerUI.Services.AuthorizationMessageHandler(sp.GetRequiredService<ILocalStorageService>()));
 
 builder.Services.AddHttpClient("ProjectService", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:5177");
-});
+    client.BaseAddress = new Uri("http://localhost:5177/");
+}).AddHttpMessageHandler(sp => new CustomerUI.Services.AuthorizationMessageHandler(sp.GetRequiredService<ILocalStorageService>()));
+
+
+static async void AddAuthorizationHeader(HttpClient client, ILocalStorageService localStorage)
+{
+    var token = await localStorage.GetItemAsStringAsync("token");
+    if (!string.IsNullOrEmpty(token))
+    {
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+    }
+}
 
 
 //// Configura il JsonSerializerOptions

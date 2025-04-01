@@ -1,25 +1,46 @@
 ﻿@inherits LayoutComponentBase
+@inject AuthService AuthService
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
 
-    <main>
-      @*   <div class="top-row px-4">
+ @*    @if (isAuthenticated)
+    { *@
+        <main>
+            @*   <div class="top-row px-4">
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
         </div> *@
 
-        @* Required *@
-        <MudThemeProvider />
-        <MudPopoverProvider />
+            @* Required *@
+            <MudThemeProvider />
+            <MudPopoverProvider />
 
-        @* Needed for dialogs *@
-        <MudDialogProvider />
+            @* Needed for dialogs *@
+            <MudDialogProvider />
 
-        @* Needed for snackbars *@
-        <MudSnackbarProvider />
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+            @* Needed for snackbars *@
+            <MudSnackbarProvider />
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+  @*   }
+    else
+    {
+        <p>Devi essere loggato per accedere a questa pagina.</p>
+    } *@
+
+   
 </div>
+
+@code {
+    private bool isAuthenticated = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await AuthService.GetToken();
+        isAuthenticated = !string.IsNullOrEmpty(token);
+    }
+}

@@ -1,14 +1,13 @@
 ﻿@page "/customers"
+@using Blazored.LocalStorage
 @using CustomerUI.Services
 @inject CustomerService CustomerService
 @using ClosedXML.Excel
 @inject IJSRuntime JSRuntime
+@inject ILocalStorageService LocalStorage
 @inject NavigationManager NavigationManager
-
-@inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@attribute [Authorize]
 
 
 <link href="Payments.css" rel="stylesheet">
@@ -196,6 +195,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        if (string.IsNullOrEmpty(token))
+        {
+            NavigationManager.NavigateTo("/");
+            return; // Evita di eseguire il resto del codice se il token non è valido
+        }
+
         // Carica tutti i clienti
         customers = await CustomerService.GetCustomersAsync();
         FilteredCustomers = customers;

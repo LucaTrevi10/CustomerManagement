@@ -1,7 +1,9 @@
 ﻿@page "/payments"
 @inject PaymentService PaymentService
+@using Blazored.LocalStorage
 @using ClosedXML.Excel
 @inject IJSRuntime JSRuntime
+@inject ILocalStorageService LocalStorage
 @inject NavigationManager Navigation
 
 <link href="Payments.css" rel="stylesheet">
@@ -168,6 +170,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/");
+            return; // Evita di eseguire il resto del codice se il token non è valido
+        }
+
         payments = await PaymentService.GetPaymentsAsync();
         filteredPayments = payments; // Inizializza la lista filtrata
     }

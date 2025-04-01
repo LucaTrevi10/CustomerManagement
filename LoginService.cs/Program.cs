@@ -7,30 +7,41 @@ using LoginService.cs.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Configura JWT
-var key = Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"]);
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// Aggiunta del DbContext
+builder.Services.AddDbContext<AuthDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+
+// Configurazione dei servizi per l'autenticazione JWT
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-            ValidAudience = builder.Configuration["JwtSettings:Audience"]
-        };
-    });
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
 
 // Abilita CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAllOrigins",
+    options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("https://localhost:7059") // Sostituisci con l'URL del tuo frontend
                   .AllowAnyMethod()
                   .AllowAnyHeader();
         });
@@ -39,18 +50,6 @@ builder.Services.AddCors(options =>
 //builder.Services.AddDbContext<AuthDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-// Se l'app è in Docker, usa la connection string definita in Docker
-var dockerConnection = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
-if (!string.IsNullOrEmpty(dockerConnection))
-{
-    connectionString = dockerConnection;
-}
-
-builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseSqlServer(connectionString));
-
-
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
@@ -66,13 +65,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.UseHttpsRedirection();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseCors("AllowAllOrigins"); // Applica la policy
 app.MapControllers();
 
 app.Run();

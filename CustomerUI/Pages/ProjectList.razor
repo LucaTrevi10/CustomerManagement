@@ -1,5 +1,6 @@
 ﻿@page "/projects"
 
+@using Blazored.LocalStorage
 @using CustomerUI.Models
 @using CustomerUI.Models.Dtos
 @using CustomerUI.Services
@@ -7,6 +8,9 @@
 @inject ProjectService ProjectService
 @inject CustomerService CustomerService 
 @inject IJSRuntime JSRuntime
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
 <link href="Payments.css" rel="stylesheet">
 <script src="js/downloadHelper.js"></script>
 
@@ -177,6 +181,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/");
+            return; // Evita di eseguire il resto del codice se il token non è valido
+        }
         allProjects = await ProjectService.GetProjectsAsync();
         projects = allProjects;
         customers = await CustomerService.GetCustomersAsync(); // Carica i clienti
