@@ -1,14 +1,21 @@
-﻿@page "/kanban"
+﻿@page "/SalesPipeline"
+@inject SalesPipelineService SalesPipelineService
+@inject CustomerService CustomerService
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@using Blazored.LocalStorage
+@using CustomerUI.Services
 @using Microsoft.AspNetCore.Components.Web
 
 <style>
     /* Contenitore della board con scroll orizzontale */
     .kanban-container {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start; /* Permette al container di adattare la propria altezza in base al contenuto */
         overflow-x: auto;
-        white-space: nowrap;
         padding-bottom: 10px; /* per non coprire la scrollbar */
     }
-
     .trello-column h5 {
         overflow: hidden;
         white-space: nowrap;
@@ -21,7 +28,7 @@
     .trello-column {
         display: inline-block; /* affianca le colonne */
         vertical-align: top;
-        width: 200px; /* larghezza fissa, regolabile */
+        width: 280px; /* larghezza fissa, regolabile */
         padding: 10px;
         border-radius: 5px;
         min-height: 400px;
@@ -46,26 +53,31 @@
 
     /* Stile per le card */
     .trello-card {
+        width: 200px; /* o max-width se preferisci */
         background-color: #ffffff;
         margin-bottom: 10px;
         border: 1px solid #ccc;
         border-radius: 3px;
         cursor: move;
+        /* Proprietà fondamentali per il wrapping */
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
     }
 </style>
 
 <div class="container">
-    <h2 class="page-title">Projects/Payments Status</h2>
+    <h2 class="page-title">Sales Pipeline</h2>
     <div class="kanban-container">
-        <!-- Colonna 1: Proposta Commerciale -->
+        <!-- Colonna 1: Lead identificato -->
         <div class="trello-column trello-column-yellow"
-             @ondrop="HandleDropProposta"
+             @ondrop="HandleDropLeadIdentificato"
              @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5>Proposta Commerciale</h5><br />
-            @foreach (var card in PropostaCards)
+            <h5>Lead identificato</h5><br />
+            @foreach (var card in LeadIdentificatoCards)
             {
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
+                    <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
                         <div>@card.Description</div>
                     </div>
@@ -73,47 +85,15 @@
             }
         </div>
 
-        <!-- Colonna 2: Inizio Progetto -->
-        <div class="trello-column trello-column-yellow"
-             @ondrop="HandleDropInizio"
-             @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5>Inizio Progetto</h5><br />
-            @foreach (var card in InizioCards)
-            {
-                <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Colonna 3: Ritardo (Inizio) -->
-        <div class="trello-column trello-column-red"
-             @ondrop="HandleDropRitardoInizio"
-             @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5 style="color:orangered; font-weight:bold;">Ritardo (Inizio)</h5><br />
-            @foreach (var card in RitardoInizioCards)
-            {
-                <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Colonna 4: Conclusione con Pagamento -->
+        <!-- Colonna 2: Proposta inviata -->
         <div class="trello-column trello-column-blue"
-             @ondrop="HandleDropConclusione"
+             @ondrop="HandleDropPropostaInviata"
              @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5>Conclusione con Pagamento</h5><br />
-            @foreach (var card in ConclusioneCards)
+            <h5>Proposta inviata</h5><br />
+            @foreach (var card in PropostaInviataCards)
             {
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
+                    <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
                         <div>@card.Description</div>
                     </div>
@@ -121,31 +101,31 @@
             }
         </div>
 
-        <!-- Colonna 5: Ritardo (Pagamento) -->
-        <div class="trello-column trello-column-red"
-             @ondrop="HandleDropRitardoPagamento"
-             @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5 style="color:orangered; font-weight:bold;">Ritardo (Pagamento)</h5><br />
-            @foreach (var card in RitardoPagamentoCards)
-            {
-                <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Colonna 6: Pagamento Ricevuto -->
+        <!-- Colonna 3: Negoziazione in corso -->
         <div class="trello-column trello-column-green"
-             @ondrop="HandleDropPagamentoRicevuto"
+             @ondrop="HandleDropNegoziazioneInCorso"
              @ondragover="OnDragOver" @ondragover:preventDefault>
-            <h5 style="color:limegreen; font-weight:bold;">Pagamento Ricevuto</h5><br />
-            @foreach (var card in PagamentoRicevutoCards)
+            <h5>Negoziazione in corso</h5><br />
+            @foreach (var card in NegoziazioneInCorsoCards)
             {
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px;">
+                    <div style="padding:10px; word-wrap: break-word;">
+                        <strong>@card.Title</strong>
+                        <div>@card.Description</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Colonna 4: Chiusura del contratto -->
+        <div class="trello-column trello-column-red"
+             @ondrop="HandleDropChiusuraContratto"
+             @ondragover="OnDragOver" @ondragover:preventDefault>
+            <h5>Chiusura del contratto</h5><br />
+            @foreach (var card in ChiusuraContrattoCards)
+            {
+                <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
+                    <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
                         <div>@card.Description</div>
                     </div>
@@ -159,31 +139,63 @@
     public class CardItem
     {
         public int Id { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
     }
 
     // Liste per le colonne
-    private List<CardItem> PropostaCards = new();
-    private List<CardItem> InizioCards = new();
-    private List<CardItem> RitardoInizioCards = new();
-    private List<CardItem> ConclusioneCards = new();
-    private List<CardItem> RitardoPagamentoCards = new();
-    private List<CardItem> PagamentoRicevutoCards = new();
+    private List<CardItem> LeadIdentificatoCards = new();
+    private List<CardItem> PropostaInviataCards = new();
+    private List<CardItem> NegoziazioneInCorsoCards = new();
+    private List<CardItem> ChiusuraContrattoCards = new();
 
     // Variabile per tracciare la card trascinata
-    private CardItem draggedCard;
+    private CardItem? draggedCard;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Dati mockup
-        PropostaCards.Add(new CardItem { Id = 1, Title = "Progetto A", Description = "Proposta inviata" });
-        PropostaCards.Add(new CardItem { Id = 2, Title = "Progetto B", Description = "Proposta in attesa" });
-        InizioCards.Add(new CardItem { Id = 3, Title = "Progetto C", Description = "Progetto iniziato" });
-        RitardoInizioCards.Add(new CardItem { Id = 4, Title = "Progetto D", Description = "Ritardo nell'inizio" });
-        ConclusioneCards.Add(new CardItem { Id = 5, Title = "Progetto E", Description = "Conclusione in corso" });
-        RitardoPagamentoCards.Add(new CardItem { Id = 6, Title = "Progetto F", Description = "Pagamento in ritardo" });
-        PagamentoRicevutoCards.Add(new CardItem { Id = 7, Title = "Progetto G", Description = "Pagamento completato" });
+        var token = await LocalStorage.GetItemAsStringAsync("token");
+        if (string.IsNullOrEmpty(token))
+        {
+            NavigationManager.NavigateTo("/");
+            return; // Evita di eseguire il resto del codice se il token non è valido
+        }
+
+        var salesPipelineList = await SalesPipelineService.GetSalesPipelineAsync();
+
+        if (salesPipelineList is not null)
+        {
+            // Mappa ogni record in una CardItem, usando CustomerId come titolo e Notes come descrizione
+            foreach (var pipeline in salesPipelineList)
+            {
+                // Chiamata per ottenere il customer; attenzione, questo viene eseguito in serie
+                var customer = await CustomerService.GetCustomerByIdAsync(pipeline.CustomerId);
+
+                var card = new CardItem
+                    {
+                        Id = pipeline.PipelineID,
+                        Title = customer.CompanyName,  // Usa il CompanyName
+                        Description = pipeline.Notes ?? string.Empty
+                    };
+
+                // Assegna la card alla colonna appropriata in base allo stato
+                switch (pipeline.CurrentStage)
+                {
+                    case "Lead identificato":
+                        LeadIdentificatoCards.Add(card);
+                        break;
+                    case "Proposta inviata":
+                        PropostaInviataCards.Add(card);
+                        break;
+                    case "Negoziazione in corso":
+                        NegoziazioneInCorsoCards.Add(card);
+                        break;
+                    case "Chiusura del contratto":
+                        ChiusuraContrattoCards.Add(card);
+                        break;
+                }
+            }
+        }
     }
 
     private void OnDragStart(DragEventArgs e, CardItem card)
@@ -193,50 +205,39 @@
 
     private void OnDragOver(DragEventArgs e)
     {
-        // Il modificatore :preventDefault sull'elemento impedisce il comportamento predefinito
+        // Consente il drop
     }
 
-    // Gestori di drop per ciascuna colonna
-    private void HandleDropProposta(DragEventArgs e) => OnDrop("Proposta");
-    private void HandleDropInizio(DragEventArgs e) => OnDrop("Inizio");
-    private void HandleDropRitardoInizio(DragEventArgs e) => OnDrop("RitardoInizio");
-    private void HandleDropConclusione(DragEventArgs e) => OnDrop("Conclusione");
-    private void HandleDropRitardoPagamento(DragEventArgs e) => OnDrop("RitardoPagamento");
-    private void HandleDropPagamentoRicevuto(DragEventArgs e) => OnDrop("PagamentoRicevuto");
+    private void HandleDropLeadIdentificato(DragEventArgs e) => OnDrop("LeadIdentificato");
+    private void HandleDropPropostaInviata(DragEventArgs e) => OnDrop("PropostaInviata");
+    private void HandleDropNegoziazioneInCorso(DragEventArgs e) => OnDrop("NegoziazioneInCorso");
+    private void HandleDropChiusuraContratto(DragEventArgs e) => OnDrop("ChiusuraContratto");
 
     private void OnDrop(string targetColumn)
     {
         if (draggedCard == null)
             return;
 
-        // Rimuovo la card da tutte le colonne
-        PropostaCards.Remove(draggedCard);
-        InizioCards.Remove(draggedCard);
-        RitardoInizioCards.Remove(draggedCard);
-        ConclusioneCards.Remove(draggedCard);
-        RitardoPagamentoCards.Remove(draggedCard);
-        PagamentoRicevutoCards.Remove(draggedCard);
+        // Rimuovi la card da tutte le colonne
+        LeadIdentificatoCards.Remove(draggedCard);
+        PropostaInviataCards.Remove(draggedCard);
+        NegoziazioneInCorsoCards.Remove(draggedCard);
+        ChiusuraContrattoCards.Remove(draggedCard);
 
-        // Aggiungo la card alla colonna di destinazione
+        // Aggiungi la card alla colonna di destinazione
         switch (targetColumn)
         {
-            case "Proposta":
-                PropostaCards.Add(draggedCard);
+            case "LeadIdentificato":
+                LeadIdentificatoCards.Add(draggedCard);
                 break;
-            case "Inizio":
-                InizioCards.Add(draggedCard);
+            case "PropostaInviata":
+                PropostaInviataCards.Add(draggedCard);
                 break;
-            case "RitardoInizio":
-                RitardoInizioCards.Add(draggedCard);
+            case "NegoziazioneInCorso":
+                NegoziazioneInCorsoCards.Add(draggedCard);
                 break;
-            case "Conclusione":
-                ConclusioneCards.Add(draggedCard);
-                break;
-            case "RitardoPagamento":
-                RitardoPagamentoCards.Add(draggedCard);
-                break;
-            case "PagamentoRicevuto":
-                PagamentoRicevutoCards.Add(draggedCard);
+            case "ChiusuraContratto":
+                ChiusuraContrattoCards.Add(draggedCard);
                 break;
         }
 

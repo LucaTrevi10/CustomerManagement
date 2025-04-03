@@ -11,6 +11,8 @@
 @inject ILocalStorageService LocalStorage
 @inject NavigationManager NavigationManager
 
+<script src="_content/Syncfusion.Blazor.Core/scripts/syncfusion-blazor.min.js" type="text/javascript"></script>
+
 <Notification Notifications="Notifications" />
 
 <div class="container py-5">
@@ -147,8 +149,9 @@
 
 
 
-@code {
+@code {    
 
+   
     private int NumberOfCustomers = 0;
     private decimal PaidPayments = 0;
     private decimal LatePayments = 0;
@@ -337,3 +340,5 @@
     private void NavigateToProjects() => NavigationManager.NavigateTo("/projects");
    
 }
+
+<script src="_content/BlazorLeaflet/leafletBlazorInterops.js"></script>
