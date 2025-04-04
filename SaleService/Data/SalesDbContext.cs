@@ -10,5 +10,6 @@ namespace SaleService.Data
         }
 
         public DbSet<SalesPipeline> SalesPipeline { get; set; }
+        public DbSet<Customer> Customer { get; set; }
     }
 }

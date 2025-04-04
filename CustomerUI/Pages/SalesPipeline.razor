@@ -12,7 +12,7 @@
     .kanban-container {
         display: flex;
         flex-direction: row;
-        align-items: flex-start; /* Permette al container di adattare la propria altezza in base al contenuto */
+        align-items: flex-start; /* Adatta l'altezza al contenuto */
         overflow-x: auto;
         padding-bottom: 10px; /* per non coprire la scrollbar */
     }
@@ -60,16 +60,51 @@
         border: 1px solid #ccc;
         border-radius: 3px;
         cursor: move;
-        /* Proprietà fondamentali per il wrapping */
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: normal;
     }
 
+    /* Dropdown filtro custom */
+    .dropdown-menu {
+        max-height: 300px;
+        overflow-y: auto;
+        position: absolute;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        z-index: 1000;
+    }
 </style>
 
 <div class="container">
     <h2 class="page-title">Sales Pipeline</h2>
+
+    <!-- Dropdown filtro per Cliente (aperto/chiuso tramite toggle locale) -->
+    <div class="mb-3" style="position: relative;">
+        <button class="btn btn-primary rounded-pill px-3 py-2" @onclick="ToggleDropdown">
+            Filtra per Cliente
+        </button>
+        @if (showDropdown)
+        {
+            <div class="dropdown-menu show p-3">
+                @foreach (var customer in AvailableCustomers)
+                {
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               @bind="customer.IsSelected"
+                               @bind:after="ApplyFilter"
+                               id="customer_@customer.CustomerId" />
+                        <label class="form-check-label" for="customer_@customer.CustomerId">
+                            @customer.CompanyName
+                        </label>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
     <div class="kanban-container">
         <!-- Colonna 1: Lead identificato -->
         <div class="trello-column trello-column-yellow"
@@ -83,7 +118,6 @@
                         <strong>@card.Title</strong>
                         @if (editingCard == card)
                         {
-                            <!-- Modalità di editing: textarea e pulsanti -->
                             <textarea @bind="card.Description"></textarea>
                             <br />
                             <button @onclick="() => SaveDescription(card)">Salva</button>
@@ -91,17 +125,12 @@
                         }
                         else
                         {
-                            <!-- Visualizzazione normale; doppio click per attivare l'editing -->
-                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                            <div @ondblclick="() => EditDescription(card)">
+                                @card.Description
+                            </div>
                         }
                     </div>
                 </div>
-               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px; word-wrap: break-word;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div> *@
             }
         </div>
 
@@ -124,16 +153,12 @@
                         }
                         else
                         {
-                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                            <div @ondblclick="() => EditDescription(card)">
+                                @card.Description
+                            </div>
                         }
                     </div>
                 </div>
-               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px; word-wrap: break-word;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div> *@
             }
         </div>
 
@@ -156,16 +181,12 @@
                         }
                         else
                         {
-                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                            <div @ondblclick="() => EditDescription(card)">
+                                @card.Description
+                            </div>
                         }
                     </div>
                 </div>
-               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px; word-wrap: break-word;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div> *@
             }
         </div>
 
@@ -188,40 +209,52 @@
                         }
                         else
                         {
-                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                            <div @ondblclick="() => EditDescription(card)">
+                                @card.Description
+                            </div>
                         }
                     </div>
                 </div>
-                @* <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
-                    <div style="padding:10px; word-wrap: break-word;">
-                        <strong>@card.Title</strong>
-                        <div>@card.Description</div>
-                    </div>
-                </div> *@
             }
         </div>
     </div>
 </div>
 
 @code {
+    // Modello della card con informazioni per filtro e drag & drop
     public class CardItem
     {
         public int Id { get; set; }
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
+        public int CustomerId { get; set; }
+        public string CurrentStage { get; set; } = "";
     }
 
-    // Liste per le colonne
+    // Lista master di tutte le card
+    private List<CardItem> AllCards = new();
+
+    // Liste per le colonne (filtrate in base al CurrentStage)
     private List<CardItem> LeadIdentificatoCards = new();
     private List<CardItem> PropostaInviataCards = new();
     private List<CardItem> NegoziazioneInCorsoCards = new();
     private List<CardItem> ChiusuraContrattoCards = new();
 
-    // Variabile per tracciare la card trascinata
+    // Variabili per drag & drop ed editing
     private CardItem? draggedCard;
-
-    // Variabile per la card in modalità di editing
     private CardItem? editingCard;
+
+    // Modello per il filtro clienti
+    public class FilterCustomerDto
+    {
+        public int CustomerId { get; set; }
+        public string CompanyName { get; set; } = "";
+        public bool IsSelected { get; set; }
+    }
+    private List<FilterCustomerDto> AvailableCustomers = new();
+
+    // Flag per mostrare/nascondere il dropdown filtro
+    private bool showDropdown = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -229,46 +262,69 @@
         if (string.IsNullOrEmpty(token))
         {
             NavigationManager.NavigateTo("/");
-            return; // Evita di eseguire il resto del codice se il token non è valido
+            return;
         }
 
+        // Carica le pipeline
         var salesPipelineList = await SalesPipelineService.GetSalesPipelineAsync();
-
         if (salesPipelineList is not null)
         {
-            // Mappa ogni record in una CardItem, usando CustomerId come titolo e Notes come descrizione
             foreach (var pipeline in salesPipelineList)
             {
-                // Chiamata per ottenere il customer; attenzione, questo viene eseguito in serie
                 var customer = await CustomerService.GetCustomerByIdAsync(pipeline.CustomerId);
-
                 var card = new CardItem
                     {
                         Id = pipeline.PipelineID,
-                        Title = customer.CompanyName,  // Usa il CompanyName
-                        Description = pipeline.Notes ?? string.Empty
+                        Title = customer.CompanyName,
+                        Description = pipeline.Notes ?? string.Empty,
+                        CustomerId = pipeline.CustomerId,
+                        CurrentStage = pipeline.CurrentStage
                     };
-
-                // Assegna la card alla colonna appropriata in base allo stato
-                switch (pipeline.CurrentStage)
-                {
-                    case "Lead identificato":
-                        LeadIdentificatoCards.Add(card);
-                        break;
-                    case "Proposta inviata":
-                        PropostaInviataCards.Add(card);
-                        break;
-                    case "Negoziazione in corso":
-                        NegoziazioneInCorsoCards.Add(card);
-                        break;
-                    case "Chiusura del contratto":
-                        ChiusuraContrattoCards.Add(card);
-                        break;
-                }
+                AllCards.Add(card);
             }
         }
+
+        // Carica i clienti per il filtro
+        var customersFromService = await SalesPipelineService.GetCustomersFromSalesPipelineAsync();
+        AvailableCustomers = customersFromService
+            .Select(c => new FilterCustomerDto
+                {
+                    CustomerId = c.CustomerId,
+                    CompanyName = c.CompanyName,
+                    IsSelected = false
+                })
+            .ToList();
+
+        ApplyFilter();
     }
 
+    // Toggle per il dropdown filtro
+    private void ToggleDropdown()
+    {
+        showDropdown = !showDropdown;
+    }
+
+    // Applica il filtro in base ai clienti selezionati
+    private void ApplyFilter()
+    {
+        var selectedCustomerIds = AvailableCustomers
+            .Where(c => c.IsSelected)
+            .Select(c => c.CustomerId)
+            .ToList();
+
+        IEnumerable<CardItem> filtered = selectedCustomerIds.Any()
+            ? AllCards.Where(card => selectedCustomerIds.Contains(card.CustomerId))
+            : AllCards;
+
+        LeadIdentificatoCards = filtered.Where(card => card.CurrentStage == "Lead identificato").ToList();
+        PropostaInviataCards = filtered.Where(card => card.CurrentStage == "Proposta inviata").ToList();
+        NegoziazioneInCorsoCards = filtered.Where(card => card.CurrentStage == "Negoziazione in corso").ToList();
+        ChiusuraContrattoCards = filtered.Where(card => card.CurrentStage == "Chiusura del contratto").ToList();
+
+        StateHasChanged();
+    }
+
+    // Gestione drag & drop
     private void OnDragStart(DragEventArgs e, CardItem card)
     {
         draggedCard = card;
@@ -279,60 +335,44 @@
         // Consente il drop
     }
 
-    private void HandleDropLeadIdentificato(DragEventArgs e) => OnDrop("LeadIdentificato");
-    private void HandleDropPropostaInviata(DragEventArgs e) => OnDrop("PropostaInviata");
-    private void HandleDropNegoziazioneInCorso(DragEventArgs e) => OnDrop("NegoziazioneInCorso");
-    private void HandleDropChiusuraContratto(DragEventArgs e) => OnDrop("ChiusuraContratto");
-
-    private void OnDrop(string targetColumn)
+    private async void OnDrop(string targetColumn)
     {
         if (draggedCard == null)
             return;
 
-        // Rimuovi la card da tutte le colonne
-        LeadIdentificatoCards.Remove(draggedCard);
-        PropostaInviataCards.Remove(draggedCard);
-        NegoziazioneInCorsoCards.Remove(draggedCard);
-        ChiusuraContrattoCards.Remove(draggedCard);
-
-        // Aggiungi la card alla colonna di destinazione
-        switch (targetColumn)
+        string newStage = targetColumn switch
         {
-            case "LeadIdentificato":
-                LeadIdentificatoCards.Add(draggedCard);
-                break;
-            case "PropostaInviata":
-                PropostaInviataCards.Add(draggedCard);
-                break;
-            case "NegoziazioneInCorso":
-                NegoziazioneInCorsoCards.Add(draggedCard);
-                break;
-            case "ChiusuraContratto":
-                ChiusuraContrattoCards.Add(draggedCard);
-                break;
-        }
+            "Lead identificato" => "Lead identificato",
+            "Proposta inviata" => "Proposta inviata",
+            "Negoziazione in corso" => "Negoziazione in corso",
+            "Chiusura del contratto" => "Chiusura del contratto",
+            _ => draggedCard.CurrentStage
+        };
 
+        draggedCard.CurrentStage = newStage;
+        await SalesPipelineService.UpdateSalesPipelineCurrentStageAsync(draggedCard.Id, newStage);
         draggedCard = null;
-        StateHasChanged();
+        ApplyFilter();
     }
 
-    // Metodo per attivare la modalità di editing
+    private void HandleDropLeadIdentificato(DragEventArgs e) => OnDrop("Lead identificato");
+    private void HandleDropPropostaInviata(DragEventArgs e) => OnDrop("Proposta inviata");
+    private void HandleDropNegoziazioneInCorso(DragEventArgs e) => OnDrop("Negoziazione in corso");
+    private void HandleDropChiusuraContratto(DragEventArgs e) => OnDrop("Chiusura del contratto");
+
+    // Gestione editing descrizione
     private void EditDescription(CardItem card)
     {
         editingCard = card;
     }
 
-    // Metodo per annullare l'editing
     private void CancelEditing()
     {
         editingCard = null;
     }
 
-    // Metodo per salvare la descrizione modificata
     private async Task SaveDescription(CardItem card)
     {
-        // Chiama il servizio per aggiornare il campo Notes nel database
-        // Assicurati che UpdateSalesPipelineNoteAsync sia implementato correttamente nel SalesPipelineService
         await SalesPipelineService.UpdateSalesPipelineNoteAsync(card.Id, card.Description);
         editingCard = null;
         StateHasChanged();
