@@ -2,10 +2,30 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 
-<h3>Login</h3>
-<input @bind="username" placeholder="Username" />
-<input @bind="password" type="password" placeholder="Password" />
-<button @onclick="LoginUser">Login</button>
+<Div Margin="Blazorise.Margin.IsAuto.OnX" Width="Blazorise.Width.Is25">
+    <h2 class="page-title">Login</h2>
+    <Card Shadow="Blazorise.Shadow.Default">
+        <CardBody TextAlignment="Blazorise.TextAlignment.Center" >
+            <Blazorise.Field Style="margin-bottom:25px !important; margin-top:25px !important;">
+                <Blazorise.FieldLabel>
+                    Username
+                </Blazorise.FieldLabel>               
+                <input @bind="username" >               
+            </Blazorise.Field>
+            <Blazorise.Field Style="margin-bottom:25px !important;">
+                <Blazorise.FieldLabel>
+                    Password
+                </Blazorise.FieldLabel>
+                <input @bind="password" type="password" />
+            </Blazorise.Field>
+            <Blazorise.Field>
+                <Blazorise.Button Color="Blazorise.Color.Primary" class="rounded-pill px-3 py-2" Block @onclick="LoginUser">
+                     Login
+                </Blazorise.Button>
+            </Blazorise.Field>
+        </CardBody>
+    </Card>
+</Div>
 
 @code {
     private string username;
