@@ -16,6 +16,7 @@
         overflow-x: auto;
         padding-bottom: 10px; /* per non coprire la scrollbar */
     }
+
     .trello-column h5 {
         overflow: hidden;
         white-space: nowrap;
@@ -64,6 +65,7 @@
         overflow-wrap: break-word;
         white-space: normal;
     }
+
 </style>
 
 <div class="container">
@@ -79,9 +81,27 @@
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
                     <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
-                        <div>@card.Description</div>
+                        @if (editingCard == card)
+                        {
+                            <!-- Modalità di editing: textarea e pulsanti -->
+                            <textarea @bind="card.Description"></textarea>
+                            <br />
+                            <button @onclick="() => SaveDescription(card)">Salva</button>
+                            <button @onclick="CancelEditing">Annulla</button>
+                        }
+                        else
+                        {
+                            <!-- Visualizzazione normale; doppio click per attivare l'editing -->
+                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                        }
                     </div>
                 </div>
+               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
+                    <div style="padding:10px; word-wrap: break-word;">
+                        <strong>@card.Title</strong>
+                        <div>@card.Description</div>
+                    </div>
+                </div> *@
             }
         </div>
 
@@ -95,9 +115,25 @@
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
                     <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
-                        <div>@card.Description</div>
+                        @if (editingCard == card)
+                        {
+                            <textarea @bind="card.Description"></textarea>
+                            <br />
+                            <button @onclick="() => SaveDescription(card)">Salva</button>
+                            <button @onclick="CancelEditing">Annulla</button>
+                        }
+                        else
+                        {
+                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                        }
                     </div>
                 </div>
+               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
+                    <div style="padding:10px; word-wrap: break-word;">
+                        <strong>@card.Title</strong>
+                        <div>@card.Description</div>
+                    </div>
+                </div> *@
             }
         </div>
 
@@ -111,9 +147,25 @@
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
                     <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
-                        <div>@card.Description</div>
+                        @if (editingCard == card)
+                        {
+                            <textarea @bind="card.Description"></textarea>
+                            <br />
+                            <button @onclick="() => SaveDescription(card)">Salva</button>
+                            <button @onclick="CancelEditing">Annulla</button>
+                        }
+                        else
+                        {
+                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                        }
                     </div>
                 </div>
+               @*  <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
+                    <div style="padding:10px; word-wrap: break-word;">
+                        <strong>@card.Title</strong>
+                        <div>@card.Description</div>
+                    </div>
+                </div> *@
             }
         </div>
 
@@ -127,9 +179,25 @@
                 <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
                     <div style="padding:10px; word-wrap: break-word;">
                         <strong>@card.Title</strong>
-                        <div>@card.Description</div>
+                        @if (editingCard == card)
+                        {
+                            <textarea @bind="card.Description"></textarea>
+                            <br />
+                            <button @onclick="() => SaveDescription(card)">Salva</button>
+                            <button @onclick="CancelEditing">Annulla</button>
+                        }
+                        else
+                        {
+                            <div @ondblclick="() => EditDescription(card)">@card.Description</div>
+                        }
                     </div>
                 </div>
+                @* <div class="trello-card" draggable="true" @ondragstart="@(e => OnDragStart(e, card))">
+                    <div style="padding:10px; word-wrap: break-word;">
+                        <strong>@card.Title</strong>
+                        <div>@card.Description</div>
+                    </div>
+                </div> *@
             }
         </div>
     </div>
@@ -151,6 +219,9 @@
 
     // Variabile per tracciare la card trascinata
     private CardItem? draggedCard;
+
+    // Variabile per la card in modalità di editing
+    private CardItem? editingCard;
 
     protected override async Task OnInitializedAsync()
     {
@@ -242,6 +313,28 @@
         }
 
         draggedCard = null;
+        StateHasChanged();
+    }
+
+    // Metodo per attivare la modalità di editing
+    private void EditDescription(CardItem card)
+    {
+        editingCard = card;
+    }
+
+    // Metodo per annullare l'editing
+    private void CancelEditing()
+    {
+        editingCard = null;
+    }
+
+    // Metodo per salvare la descrizione modificata
+    private async Task SaveDescription(CardItem card)
+    {
+        // Chiama il servizio per aggiornare il campo Notes nel database
+        // Assicurati che UpdateSalesPipelineNoteAsync sia implementato correttamente nel SalesPipelineService
+        await SalesPipelineService.UpdateSalesPipelineNoteAsync(card.Id, card.Description);
+        editingCard = null;
         StateHasChanged();
     }
 }

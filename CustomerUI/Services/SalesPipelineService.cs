@@ -25,5 +25,12 @@ namespace CustomerUI.Services
                 return new();
             }
         }
+
+        public async Task UpdateSalesPipelineNoteAsync(int pipelineId, string newNote)
+        {
+            var dto = new { Note = newNote };
+            var response = await _httpClient.PutAsJsonAsync($"api/SalesPipeline/{pipelineId}/notes", dto);
+            response.EnsureSuccessStatusCode();
+        }
     }
 }
